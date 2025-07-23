@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义样式 */
+@layer base {
+  html {
+    font-family: system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .table-auto {
+    table-layout: auto;
+  }
+  
+  .table-fixed {
+    table-layout: fixed;
+  }
+}
+
+/* TanStack Table 自定义样式 */
+.table {
+  border-spacing: 0;
+  border: 1px solid #e5e7eb;
+}
+
+.table tr:last-child td {
+  border-bottom: 0;
+}
+
+.table th,
+.table td {
+  margin: 0;
+  padding: 0.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  border-right: 1px solid #e5e7eb;
+}
+
+.table th:last-child,
+.table td:last-child {
+  border-right: 0;
+}
+
+.table th {
+  background-color: #f9fafb;
+  font-weight: 600;
+}
+
+.table td input {
+  font-size: 1rem;
+  padding: 0.25rem;
+  margin: 0;
+  border: 1px solid transparent;
+  background: transparent;
+  width: 100%;
+}
+
+.table td input:focus {
+  border-color: #3b82f6;
+  outline: none;
+  background: white;
+}
+
+/* 加载动画 */
+.loading-spinner {
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* YouTube风格的按钮 */
+.btn-youtube {
+  @apply bg-youtube-red text-white font-medium py-2 px-4 rounded hover:bg-red-700 transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 text-gray-800 font-medium py-2 px-4 rounded hover:bg-gray-300 transition-colors;
+}

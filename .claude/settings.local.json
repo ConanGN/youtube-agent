@@ -2,7 +2,21 @@
   "permissions": {
     "allow": [
       "Bash(find:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(mkdir:*)",
+      "Bash(npm install)",
+      "Bash(npm run type-check:*)",
+      "Bash(ls:*)",
+      "Bash(npm run dev:*)",
+      "Bash(start npm run dev)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(powershell:*)",
+      "Bash(timeout:*)",
+      "Bash(curl:*)",
+      "Bash(rm:*)",
+      "Bash(del \"E:\\AI_code\\0ai_agent\\youtube-agent\\test-api.js\")",
+      "Bash(del test-api.js)"
     ],
     "deny": []
   }

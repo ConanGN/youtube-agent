@@ -1,0 +1,247 @@
+'use client'
+
+// 内联编辑单元格组件
+// 参考模式: examples/react/editable-data/src/main.tsx
+
+import React, { useState, useEffect } from 'react'
+import { CellContext } from '@tanstack/react-table'
+import { YouTubeVideo } from '@/types'
+
+interface EditableCellProps extends CellContext<YouTubeVideo, unknown> {
+  isLongText?: boolean
+  placeholder?: string
+  validator?: (value: string) => boolean | string
+}
+
+export function EditableCell({
+  getValue,
+  row: { index },
+  column: { id },
+  table,
+  isLongText = false,
+  placeholder = '',
+  validator,
+}: EditableCellProps) {
+  const initialValue = getValue() as string
+  const [value, setValue] = useState(initialValue || '')
+  const [isEditing, setIsEditing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // 当初始值改变时同步状态
+  useEffect(() => {
+    setValue(initialValue || '')
+  }, [initialValue])
+
+  // 验证输入值
+  const validateValue = (newValue: string): boolean => {
+    if (validator) {
+      const result = validator(newValue)
+      if (typeof result === 'string') {
+        setError(result)
+        return false
+      }
+      if (!result) {
+        setError('输入值无效')
+        return false
+      }
+    }
+    setError(null)
+    return true
+  }
+
+  // 处理值变更
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const newValue = e.target.value
+    setValue(newValue)
+    validateValue(newValue)
+  }
+
+  // 处理失焦保存
+  const handleBlur = () => {
+    setIsEditing(false)
+    
+    // 如果值没有变化，直接返回
+    if (value === initialValue) {
+      return
+    }
+
+    // 验证值
+    if (!validateValue(value)) {
+      setValue(initialValue) // 恢复原值
+      return
+    }
+
+    // 保存编辑历史
+    if (table.options.meta?.addEditHistory) {
+      table.options.meta.addEditHistory(index, id, initialValue || '', value)
+    }
+
+    // 更新数据
+    table.options.meta?.updateData(index, id, value)
+  }
+
+  // 处理键盘事件
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      if (!isLongText) {
+        // 短文本：Enter保存
+        e.preventDefault()
+        handleBlur()
+      } else if (e.ctrlKey || e.metaKey) {
+        // 长文本：Ctrl+Enter保存
+        e.preventDefault()
+        handleBlur()
+      }
+    } else if (e.key === 'Escape') {
+      // ESC取消编辑
+      setValue(initialValue || '')
+      setError(null)
+      setIsEditing(false)
+    }
+  }
+
+  // 处理双击编辑
+  const handleDoubleClick = () => {
+    setIsEditing(true)
+  }
+
+  // 渲染编辑状态
+  if (isEditing) {
+    const commonProps = {
+      value,
+      onChange: handleChange,
+      onBlur: handleBlur,
+      onKeyDown: handleKeyDown,
+      placeholder,
+      autoFocus: true,
+      className: `w-full p-1 border-0 outline-none resize-none ${
+        error ? 'bg-red-50 text-red-900' : 'bg-yellow-50'
+      }`,
+    }
+
+    return (
+      <div className="relative">
+        {isLongText ? (
+          <textarea
+            {...commonProps}
+            rows={3}
+            style={{ minHeight: '60px' }}
+          />
+        ) : (
+          <input
+            type="text"
+            {...commonProps}
+          />
+        )}
+        {error && (
+          <div className="absolute top-full left-0 z-10 mt-1 p-1 text-xs text-red-600 bg-red-100 border border-red-200 rounded shadow-lg whitespace-nowrap">
+            {error}
+          </div>
+        )}
+        {isLongText && (
+          <div className="absolute bottom-1 right-1 text-xs text-gray-400">
+            Ctrl+Enter保存
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // 渲染显示状态
+  return (
+    <div
+      className="p-1 cursor-pointer hover:bg-gray-50 min-h-[32px] flex items-center"
+      onDoubleClick={handleDoubleClick}
+      title="双击编辑"
+    >
+      {value ? (
+        <span className={`${isLongText ? 'line-clamp-2' : 'truncate'} w-full`}>
+          {value}
+        </span>
+      ) : (
+        <span className="text-gray-400 italic">
+          {placeholder || '双击编辑'}
+        </span>
+      )}
+    </div>
+  )
+}
+
+// 数值编辑单元格
+export function NumberEditableCell({
+  getValue,
+  row: { index },
+  column: { id },
+  table,
+  min = 0,
+  max,
+  format = 'number',
+}: CellContext<YouTubeVideo, unknown> & {
+  min?: number
+  max?: number
+  format?: 'number' | 'compact'
+}) {
+  const initialValue = getValue() as number
+  const [value, setValue] = useState(initialValue?.toString() || '0')
+  const [isEditing, setIsEditing] = useState(false)
+
+  useEffect(() => {
+    setValue(initialValue?.toString() || '0')
+  }, [initialValue])
+
+  const handleBlur = () => {
+    setIsEditing(false)
+    const numValue = parseInt(value, 10)
+    
+    if (isNaN(numValue)) {
+      setValue(initialValue?.toString() || '0')
+      return
+    }
+
+    const clampedValue = Math.max(min, max ? Math.min(max, numValue) : numValue)
+    setValue(clampedValue.toString())
+    
+    if (clampedValue !== initialValue) {
+      table.options.meta?.updateData(index, id, clampedValue)
+    }
+  }
+
+  const formatNumber = (num: number): string => {
+    if (format === 'compact') {
+      return num.toLocaleString('zh-CN')
+    }
+    return num.toString()
+  }
+
+  if (isEditing) {
+    return (
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleBlur}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleBlur()
+          if (e.key === 'Escape') {
+            setValue(initialValue?.toString() || '0')
+            setIsEditing(false)
+          }
+        }}
+        min={min}
+        max={max}
+        className="w-full p-1 border-0 outline-none bg-yellow-50"
+        autoFocus
+      />
+    )
+  }
+
+  return (
+    <div
+      className="p-1 cursor-pointer hover:bg-gray-50 text-right"
+      onDoubleClick={() => setIsEditing(true)}
+      title="双击编辑"
+    >
+      {formatNumber(initialValue || 0)}
+    </div>
+  )
+}
