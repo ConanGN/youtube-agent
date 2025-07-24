@@ -71,7 +71,7 @@ export function ChannelInput({
   const handleSubmit = useCallback(() => {
     setErrors([])
     
-    let finalChannelId = ''
+    let finalChannelId: string | null = null
     let finalChannelUrl = ''
     
     if (inputType === 'url') {
@@ -85,14 +85,9 @@ export function ChannelInput({
         return
       }
       
-      const extractedId = extractChannelId(channelUrl)
-      if (!extractedId) {
-        setErrors(['无法从链接中提取频道ID'])
-        return
-      }
-      
+      // 对于URL输入，让后端处理ID解析，前端只传递URL
       finalChannelUrl = channelUrl.trim()
-      finalChannelId = extractedId
+      finalChannelId = null // 让后端解析
     } else {
       if (!channelId.trim()) {
         setErrors(['请输入频道ID'])

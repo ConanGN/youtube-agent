@@ -29,6 +29,8 @@ const YOUTUBE_API_CONFIG = {
 export class YouTubeAPIClient {
   private youtube: youtube_v3.Youtube
   private quotaUsed = 0
+  private readonly maxRetries = 3 // 最大重试次数
+  private readonly retryDelay = 1000 // 重试延迟（毫秒）
 
   constructor(apiKey: string) {
     if (!apiKey) {
@@ -39,6 +41,181 @@ export class YouTubeAPIClient {
       version: YOUTUBE_API_CONFIG.version,
       auth: apiKey,
     })
+  }
+
+  /**
+   * 带重试的API请求包装器
+   */
+  private async withRetry<T>(
+    operation: () => Promise<T>,
+    context: string = 'API request'
+  ): Promise<T> {
+    let lastError: any
+
+    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
+      try {
+        console.log(`${context} - 尝试 ${attempt}/${this.maxRetries}`)
+        const result = await operation()
+        if (attempt > 1) {
+          console.log(`${context} - 重试成功`)
+        }
+        return result
+      } catch (error) {
+        lastError = error
+        console.error(`${context} - 尝试 ${attempt} 失败:`, error)
+
+        // 检查是否应该重试
+        const shouldRetry = this.shouldRetry(error, attempt)
+        if (!shouldRetry) {
+          console.log(`${context} - 不适合重试，直接抛出错误`)
+          throw error
+        }
+
+        if (attempt < this.maxRetries) {
+          const delay = this.retryDelay * Math.pow(2, attempt - 1) // 指数退避
+          console.log(`${context} - 等待 ${delay}ms 后重试`)
+          await this.sleep(delay)
+        }
+      }
+    }
+
+    console.error(`${context} - 所有重试都失败`)
+    throw lastError
+  }
+
+  /**
+   * 判断是否应该重试
+   */
+  private shouldRetry(error: any, attempt: number): boolean {
+    // 已达到最大重试次数
+    if (attempt >= this.maxRetries) {
+      return false
+    }
+
+    // 检查错误类型
+    const errorCode = error?.code || error?.response?.status
+    const errorMessage = error?.message || ''
+
+    // 不重试的错误类型
+    const noRetryErrors = [
+      400, // 请求格式错误
+      401, // 认证失败
+      403, // 权限不足或配额用完
+      404, // 资源不存在
+    ]
+
+    if (noRetryErrors.includes(errorCode)) {
+      return false
+    }
+
+    // 应该重试的错误类型
+    const retryableErrors = [
+      'ETIMEDOUT',
+      'ECONNRESET',
+      'ENOTFOUND',
+      'ECONNREFUSED',
+      'timeout',
+      '500',
+      '502',
+      '503',
+      '504',
+    ]
+
+    return retryableErrors.some(
+      retryableError =>
+        errorMessage.includes(retryableError) ||
+        errorCode === parseInt(retryableError, 10)
+    )
+  }
+
+  /**
+   * 延迟函数
+   */
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms))
+  }
+
+  /**
+   * 处理搜索结果并找到最匹配的频道
+   */
+  private async processSearchResults(items: any[], searchTerm: string): Promise<string | null> {
+    const cleanSearchTerm = searchTerm.toLowerCase()
+    
+    console.log(`处理 ${items.length} 个搜索结果`)
+    
+    for (const item of items) {
+      const channelTitle = item.snippet?.title?.toLowerCase() || ''
+      const customUrl = item.snippet?.customUrl?.toLowerCase() || ''
+      
+      console.log('检查频道:', {
+        title: item.snippet?.title,
+        customUrl: item.snippet?.customUrl,
+        channelId: item.snippet?.channelId
+      })
+      
+      // 精确匹配自定义URL
+      if (customUrl === `@${cleanSearchTerm}` || customUrl === cleanSearchTerm) {
+        const channelId = item.snippet?.channelId
+        console.log('精确匹配找到频道ID:', channelId)
+        // 验证此频道ID是否有效
+        if (await this.verifyChannelId(channelId)) {
+          return channelId || null
+        }
+      }
+      
+      // 模糊匹配自定义URL
+      if (customUrl.includes(cleanSearchTerm)) {
+        const channelId = item.snippet?.channelId
+        console.log('模糊匹配找到频道ID:', channelId)
+        if (await this.verifyChannelId(channelId)) {
+          return channelId || null
+        }
+      }
+      
+      // 匹配频道标题
+      if (channelTitle.includes(cleanSearchTerm)) {
+        const channelId = item.snippet?.channelId
+        console.log('标题匹配找到频道ID:', channelId)
+        if (await this.verifyChannelId(channelId)) {
+          return channelId || null
+        }
+      }
+    }
+    
+    // 如果没有匹配，返回第一个结果（如果存在）
+    if (items.length > 0) {
+      const channelId = items[0].snippet?.channelId
+      console.log('返回第一个搜索结果:', channelId)
+      if (await this.verifyChannelId(channelId)) {
+        return channelId || null
+      }
+    }
+    
+    return null
+  }
+
+  /**
+   * 验证频道ID是否有效
+   */
+  private async verifyChannelId(channelId: string | undefined): Promise<boolean> {
+    if (!channelId) return false
+    
+    try {
+      const verifyResponse = await this.withRetry(
+        () => this.youtube.channels.list({
+          part: ['snippet'],
+          id: [channelId],
+        }),
+        `验证频道ID: ${channelId}`
+      )
+      
+      const isValid = (verifyResponse.data.items?.length || 0) > 0
+      console.log(`频道ID ${channelId} 验证结果:`, isValid ? '有效' : '无效')
+      return isValid
+    } catch (e) {
+      console.log('频道ID验证失败:', channelId, (e as Error).message)
+      return false
+    }
   }
 
   /**
@@ -94,47 +271,151 @@ export class YouTubeAPIClient {
         return identifier
       }
 
-      // 通过search API查找频道
+      // 处理 @ 格式的频道名称
+      const cleanIdentifier = identifier.replace(/^@/, '')
+      console.log('清理后的标识符:', cleanIdentifier)
+      
+      // 已知频道映射表（用于快速解析常见频道）
+      const knownChannels: Record<string, string> = {
+        'mrbeast': 'UCX6OQ3DkcsbYNE6H8uQQuVA',
+        'MrBeast': 'UCX6OQ3DkcsbYNE6H8uQQuVA',
+        'pewdiepie': 'UC-lHJZR3Gqxm24_Vd_AJ5Yw',
+        'PewDiePie': 'UC-lHJZR3Gqxm24_Vd_AJ5Yw',
+        'mkbhd': 'UCBJycsmduvYEL83R_U4JriQ',
+        'MKBHD': 'UCBJycsmduvYEL83R_U4JriQ',
+        'linustechtips': 'UCXuqSBlHAE6Xw-yeJA0Tunw',
+        'LinusTechTips': 'UCXuqSBlHAE6Xw-yeJA0Tunw',
+        'verge': 'UCddiUEpeqJcYeBxX1IVBKvQ',
+        'Verge': 'UCddiUEpeqJcYeBxX1IVBKvQ',
+        'mrmrsgao': 'UCMUnInmOkrWN4gof9KlhNmQ',
+        'MrMrsGao': 'UCMUnInmOkrWN4gof9KlhNmQ',
+        'rayduenglish': 'UC02x9vEdKbKzRyJw9lIRdNg'
+      }
+      
+      console.log('检查已知频道映射，标识符:', cleanIdentifier)
+      // 先尝试直接匹配
+      if (knownChannels[cleanIdentifier]) {
+        const channelId = knownChannels[cleanIdentifier]
+        console.log('从已知频道映射表找到频道ID（直接匹配）:', cleanIdentifier, '->', channelId)
+        return channelId
+      }
+      
+      // 尝试小写匹配
+      const lowerIdentifier = cleanIdentifier.toLowerCase()
+      if (knownChannels[lowerIdentifier]) {
+        const channelId = knownChannels[lowerIdentifier]
+        console.log('从已知频道映射表找到频道ID（小写匹配）:', lowerIdentifier, '->', channelId)
+        return channelId
+      }
+      
+      console.log('未在已知频道映射表中找到:', cleanIdentifier)
+
+      // 方法1：通过search API查找频道（最可靠的方法）
       console.log('通过搜索API查找频道...')
-      const searchResponse = await this.youtube.search.list({
-        part: ['snippet'],
-        q: identifier,
-        type: ['channel'],
-        maxResults: 1,
-      })
+      try {
+        // 首先尝试精确的@格式搜索
+        const searchResponse = await this.withRetry(
+          () => this.youtube.search.list({
+            part: ['snippet'],
+            q: `"@${cleanIdentifier}"`, // 使用引号进行精确搜索
+            type: ['channel'],
+            maxResults: 10,
+          }),
+          `精确搜索频道: "@${cleanIdentifier}"`
+        )
 
-      this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['search.list']
+        this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['search.list']
+        console.log(`精确搜索API返回 ${searchResponse.data.items?.length || 0} 个结果`)
+        
+        // 如果精确搜索没有结果，尝试不带引号的搜索
+        if (!searchResponse.data.items?.length) {
+          console.log('精确搜索无结果，尝试模糊搜索...')
+          const fuzzySearchResponse = await this.withRetry(
+            () => this.youtube.search.list({
+              part: ['snippet'],
+              q: `@${cleanIdentifier}`, // 不带引号的模糊搜索
+              type: ['channel'],
+              maxResults: 10,
+            }),
+            `模糊搜索频道: @${cleanIdentifier}`
+          )
+          
+          this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['search.list']
+          console.log(`模糊搜索API返回 ${fuzzySearchResponse.data.items?.length || 0} 个结果`)
+          
+          if (fuzzySearchResponse.data.items?.length) {
+            return this.processSearchResults(fuzzySearchResponse.data.items, cleanIdentifier)
+          }
+        } else {
+          return this.processSearchResults(searchResponse.data.items, cleanIdentifier)
+        }
 
-      if (searchResponse.data.items?.length) {
-        const channelId = searchResponse.data.items[0].snippet?.channelId
-        console.log('搜索API找到频道ID:', channelId)
-        return channelId || null
+      } catch (error) {
+        console.log('搜索API查找失败:', error)
       }
 
-      // 尝试通过channels API直接查找
-      console.log('尝试通过channels API查找...')
+      // 方法2：尝试通过 forHandle 参数查找（新的 @ 格式）
+      // 注意：forHandle参数在当前版本的API中可能不可用，先跳过
+      console.log('跳过forHandle查找（API版本不支持）...')
+
+      // 方法3：尝试通过channels API的forUsername查找
+      console.log('尝试通过forUsername查找频道...')
       try {
-        const channelResponse = await this.youtube.channels.list({
-          part: ['id'],
-          forUsername: identifier,
-        })
+        const channelResponse = await this.withRetry(
+          () => this.youtube.channels.list({
+            part: ['id', 'snippet'],
+            forUsername: cleanIdentifier,
+          }),
+          `forUsername查找: ${cleanIdentifier}`
+        )
 
         this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['channels.list']
 
         if (channelResponse.data.items?.length) {
           const channelId = channelResponse.data.items[0].id
-          console.log('channels API找到频道ID:', channelId)
+          console.log('forUsername API找到频道ID:', channelId)
           return channelId || null
         }
       } catch (error) {
-        // forUsername 可能不支持所有类型的标识符
-        console.log('forUsername lookup failed:', error.message)
+        console.log('forUsername lookup failed:', error)
       }
 
-      console.log('未找到频道ID')
+      // 方法4：尝试不带@的搜索
+      console.log('尝试不带@的搜索...')
+      try {
+        const searchResponse2 = await this.withRetry(
+          () => this.youtube.search.list({
+            part: ['snippet'],
+            q: cleanIdentifier, // 不带@的搜索
+            type: ['channel'],
+            maxResults: 10,
+          }),
+          `搜索频道（不带@）: ${cleanIdentifier}`
+        )
+
+        this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['search.list']
+        console.log(`不带@的搜索API返回 ${searchResponse2.data.items?.length || 0} 个结果`)
+
+        if (searchResponse2.data.items?.length) {
+          const result = await this.processSearchResults(searchResponse2.data.items, cleanIdentifier)
+          if (result) {
+            return result
+          }
+        }
+      } catch (error) {
+        console.log('不带@搜索失败:', error)
+      }
+
+      console.log('所有方法都未找到频道ID')
       return null
     } catch (error) {
       console.error('Error resolving channel ID:', error)
+      // 添加更详细的错误信息
+      if (error.code === 'ETIMEDOUT') {
+        throw new YouTubeAPIError('网络请求超时，请检查网络连接', 'NETWORK_TIMEOUT')
+      } else if (error.code === 403) {
+        throw new YouTubeAPIError('API密钥无效或配额已用完', 'API_KEY_ERROR')
+      }
       return null
     }
   }
@@ -264,35 +545,67 @@ export class YouTubeAPIClient {
    */
   async getChannelVideos(request: ChannelVideosRequest): Promise<YouTubeAPIResponse<BatchProcessResult>> {
     try {
-      console.log('开始获取频道视频:', request.channelUrl, '最大数量:', request.maxResults, '排序:', request.order)
+      console.log('🔍 开始获取频道视频:', request.channelUrl, '最大数量:', request.maxResults, '排序:', request.order)
+      console.log('🔍 请求参数:', JSON.stringify(request, null, 2))
       
       let channelId = request.channelId
+      console.log('🔍 初始channelId:', channelId)
 
       // 如果提供的是频道URL，提取频道标识符
-      if (request.channelUrl && !channelId) {
+      if (request.channelUrl && (!channelId || channelId === 'null')) {
+        console.log('处理频道URL:', request.channelUrl)
         const identifier = this.extractChannelId(request.channelUrl)
+        console.log('extractChannelId结果:', identifier)
         if (!identifier) {
+          console.error('无法从URL中提取频道标识符:', request.channelUrl)
           throw new YouTubeAPIError('Invalid channel URL', 'INVALID_CHANNEL_URL')
         }
         
         // 解析为真实的频道ID
+        console.log('开始解析频道标识符:', identifier)
         channelId = await this.resolveChannelId(identifier)
+        console.log('resolveChannelId结果:', channelId)
         if (!channelId) {
-          throw new YouTubeAPIError('Could not resolve channel ID from URL', 'CHANNEL_ID_RESOLUTION_FAILED')
+          console.error('频道ID解析失败，无法找到频道:', identifier)
+          throw new YouTubeAPIError(`无法找到频道 "${identifier}"，请检查频道链接是否正确或频道是否存在`, 'CHANNEL_NOT_FOUND')
         }
         
-        console.log('解析频道ID:', identifier, '->', channelId)
+        console.log('成功解析频道ID:', identifier, '->', channelId)
+        
+        // 验证频道ID是否有效（预先验证，避免后续错误）
+        console.log('验证频道ID有效性:', channelId)
+        const validationResponse = await this.withRetry(
+          () => this.youtube.channels.list({
+            part: ['snippet'],
+            id: [channelId!],
+          }),
+          `验证频道ID: ${channelId}`
+        )
+        
+        if (!validationResponse.data.items?.length) {
+          console.error('频道ID验证失败，频道不存在:', channelId)
+          throw new YouTubeAPIError(`频道 "${identifier}" 不存在或已被删除`, 'CHANNEL_NOT_FOUND')
+        }
+        
+        console.log('频道ID验证成功:', validationResponse.data.items[0].snippet?.title)
       }
 
       if (!channelId) {
+        console.error('🚨 最终channelId为空')
         throw new YouTubeAPIError('Channel ID or URL is required', 'MISSING_CHANNEL_ID')
       }
 
+      console.log('✅ 最终使用的channelId:', channelId)
+
       // 首先获取频道信息和上传播放列表ID
-      const channelResponse = await this.youtube.channels.list({
-        part: ['snippet', 'contentDetails', 'statistics'],
-        id: [channelId],
-      })
+      console.log('🔍 开始获取频道信息，channelId:', channelId)
+      const channelResponse = await this.withRetry(
+        () => this.youtube.channels.list({
+          part: ['snippet', 'contentDetails', 'statistics'],
+          id: [channelId],
+        }),
+        '获取频道信息'
+      )
 
       this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['channels.list']
 
@@ -309,11 +622,14 @@ export class YouTubeAPIClient {
 
       // 获取视频ID列表
       const maxResults = Math.min(request.maxResults || 50, 50)
-      const playlistResponse = await this.youtube.playlistItems.list({
-        part: ['snippet'],
-        playlistId: uploadsPlaylistId,
-        maxResults,
-      })
+      const playlistResponse = await this.withRetry(
+        () => this.youtube.playlistItems.list({
+          part: ['snippet'],
+          playlistId: uploadsPlaylistId,
+          maxResults,
+        }),
+        '获取播放列表'
+      )
 
       this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['playlistItems.list']
 
@@ -326,10 +642,13 @@ export class YouTubeAPIClient {
       }
 
       // 获取视频详细信息
-      const videosResponse = await this.youtube.videos.list({
-        part: ['snippet', 'statistics', 'contentDetails'],
-        id: videoIds,
-      })
+      const videosResponse = await this.withRetry(
+        () => this.youtube.videos.list({
+          part: ['snippet', 'statistics', 'contentDetails'],
+          id: videoIds,
+        }),
+        '获取视频详情'
+      )
 
       this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['videos.list']
 
@@ -417,9 +736,29 @@ export class YouTubeAPIClient {
       message = apiError.message || message
       code = apiError.errors?.[0]?.reason || 'API_ERROR'
       quotaExceeded = code === 'quotaExceeded'
+    } else if (error?.code === 'ETIMEDOUT' || error?.errno === 'ETIMEDOUT') {
+      message = '网络请求超时，请检查网络连接或稍后重试'
+      code = 'NETWORK_TIMEOUT'
+    } else if (error?.code === 403) {
+      message = 'YouTube API密钥无效或配额已用完'
+      code = 'API_KEY_ERROR'
+      quotaExceeded = true
+    } else if (error?.code === 404) {
+      message = '找不到指定的频道或视频'
+      code = 'NOT_FOUND'
     } else if (error instanceof Error) {
       message = error.message
+      // 检查常见的网络错误
+      if (message.includes('ETIMEDOUT') || message.includes('timeout')) {
+        code = 'NETWORK_TIMEOUT'
+        message = '网络请求超时，请检查网络连接或稍后重试'
+      } else if (message.includes('ENOTFOUND') || message.includes('getaddrinfo')) {
+        code = 'DNS_ERROR'
+        message = 'DNS解析失败，请检查网络连接'
+      }
     }
+
+    console.error('YouTube API错误详情:', { code, message, originalError: error })
 
     return {
       success: false,

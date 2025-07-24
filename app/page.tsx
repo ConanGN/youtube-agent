@@ -44,12 +44,13 @@ export default function HomePage() {
           
         case 'channel':
           if (options) {
+            // urls[0] 是 channelId (可能为null)，urls[1] 是 channelUrl
             response = await fetch('/api/youtube/channel', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                channelId: urls[0], // 这里urls[0]实际是channelId
-                channelUrl: urls[1], // urls[1]是channelUrl
+                channelId: urls[0] || null, // 确保为null而不是undefined或字符串
+                channelUrl: urls[1], // 频道URL
                 maxResults: options.maxResults,
                 order: options.order
               }),

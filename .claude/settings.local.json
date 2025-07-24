@@ -16,7 +16,10 @@
       "Bash(curl:*)",
       "Bash(rm:*)",
       "Bash(del \"E:\\AI_code\\0ai_agent\\youtube-agent\\test-api.js\")",
-      "Bash(del test-api.js)"
+      "Bash(del test-api.js)",
+      "WebFetch(domain:www.youtube.com)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run build:*)"
     ],
     "deny": []
   }

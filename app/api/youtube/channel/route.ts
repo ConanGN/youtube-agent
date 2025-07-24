@@ -70,15 +70,34 @@ export async function POST(request: NextRequest) {
     })
 
     if (!result.success) {
-      // 根据错误类型返回不同的状态码
+      // 根据错误类型返回不同的状态码和建议
       let statusCode = 500
-      if (result.error?.includes('not found')) {
+      let errorMessage = result.error
+      let suggestions: string[] = []
+
+      if (result.error?.includes('not found') || result.error?.includes('不存在')) {
         statusCode = 404
+        suggestions = [
+          '请检查频道链接是否正确',
+          '确认频道是否真实存在',
+          '尝试使用其他格式的频道链接',
+          '可以尝试以下测试频道：https://www.youtube.com/@MrBeast'
+        ]
       } else if (result.error?.includes('Invalid channel')) {
         statusCode = 400
+        suggestions = [
+          '请使用正确的YouTube频道链接格式',
+          '支持的格式：https://www.youtube.com/@频道名',
+          '或者：https://www.youtube.com/channel/频道ID'
+        ]
       }
       
-      return NextResponse.json(result, { status: statusCode })
+      const responseData = {
+        ...result,
+        suggestions: suggestions.length > 0 ? suggestions : undefined
+      }
+      
+      return NextResponse.json(responseData, { status: statusCode })
     }
 
     const batchResult = result.data as BatchProcessResult
