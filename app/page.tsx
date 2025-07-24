@@ -3,7 +3,7 @@
 // YouTube数据处理与AI增强平台主页面
 // 专注于数据输入和获取功能
 
-import React, { useCallback } from 'react'
+import React, { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { DataInputType } from '@/types'
 import { useAppStore, useVideoState, useVideoActions } from '@/store'
@@ -16,8 +16,11 @@ export default function HomePage() {
   const { loading, error, hasVideos } = useVideoState()
   const { addVideos } = useVideoActions()
   const { setLoading, setError } = useAppStore()
+  
+  // 数据处理模式：replace（替换）或append（追加）
+  const [dataMode, setDataMode] = useState<'replace' | 'append'>('replace')
 
-  // 数据获取处理
+  // 数据获取处理 - 每次获取新数据时先清除旧数据
   const handleDataFetch = useCallback(async (urls: string[], type: DataInputType, options?: any) => {
     setLoading(true)
     setError(null)
@@ -69,11 +72,21 @@ export default function HomePage() {
       const data = await response.json() as any
       
       if (data.success) {
-        if (type === 'single') {
-          addVideos([data.data])
+        // 根据用户选择的模式处理数据
+        if (dataMode === 'replace') {
+          // 替换模式：清除旧数据，设置新数据
+          if (type === 'single') {
+            useAppStore.getState().setVideos([data.data])
+          } else {
+            useAppStore.getState().setVideos(data.data?.successful || [])
+          }
         } else {
-          // 对于批量和频道请求，数据在data.data.successful中
-          addVideos(data.data?.successful || [])
+          // 追加模式：在现有数据基础上添加新数据
+          if (type === 'single') {
+            addVideos([data.data])
+          } else {
+            addVideos(data.data?.successful || [])
+          }
         }
         
         // 数据获取成功后跳转到详情页
@@ -87,7 +100,7 @@ export default function HomePage() {
     } finally {
       setLoading(false)
     }
-  }, [addVideos, setLoading, setError])
+  }, [dataMode, addVideos, setLoading, setError, router])
 
   // 处理视频URL输入
   const handleVideoUrlSubmit = useCallback((urls: string[], type: DataInputType) => {
@@ -162,6 +175,35 @@ export default function HomePage() {
             <p className="text-gray-600 text-sm sm:text-base px-4">
               选择一种方式来获取YouTube视频数据
             </p>
+            
+            {/* 数据处理模式选择 */}
+            {hasVideos && (
+              <div className="mt-6 flex items-center justify-center space-x-4">
+                <span className="text-sm text-gray-600">数据处理模式：</span>
+                <div className="flex bg-gray-100 rounded-lg p-1">
+                  <button
+                    onClick={() => setDataMode('replace')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      dataMode === 'replace'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    替换数据
+                  </button>
+                  <button
+                    onClick={() => setDataMode('append')}
+                    className={`px-3 py-1 text-sm rounded-md transition-colors ${
+                      dataMode === 'append'
+                        ? 'bg-white text-blue-600 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    追加数据
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
