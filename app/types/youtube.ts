@@ -130,6 +130,39 @@ export class YouTubeAPIError extends Error {
   }
 }
 
+// 通用数据类型（支持CSV数据）
+export interface GenericDataItem {
+  id: string
+  title: string
+  description: string
+  originalData: string
+  category: string
+  tags: string[]
+  publishedAt: string
+  status: 'processed' | 'pending'
+  
+  // 兼容YouTube字段（可选）
+  thumbnail?: string
+  viewCount?: number
+  likeCount?: number
+  commentCount?: number
+  duration?: string
+  channelTitle?: string
+  channelId?: string
+  videoUrl?: string
+  categoryId?: string
+  
+  // AI增强字段
+  enhancedTitle?: string
+  summarizedDescription?: string
+  translatedTitle?: string
+  isEdited?: boolean
+  editHistory?: EditHistory[]
+}
+
+// 统一数据类型（YouTube或CSV数据）
+export type UnifiedDataItem = YouTubeVideo | GenericDataItem
+
 // 工具类型
 export type VideoFieldKey = keyof YouTubeVideo
 export type RequiredVideoFields = Pick<YouTubeVideo, 'id' | 'title' | 'videoUrl'>

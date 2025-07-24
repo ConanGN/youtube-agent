@@ -18,6 +18,8 @@ export type {
   VideoFieldKey,
   RequiredVideoFields,
   OptionalVideoFields,
+  GenericDataItem,
+  UnifiedDataItem,
 } from './youtube'
 
 export { YouTubeAPIError } from './youtube'

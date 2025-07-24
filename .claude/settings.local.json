@@ -19,7 +19,9 @@
       "Bash(del test-api.js)",
       "WebFetch(domain:www.youtube.com)",
       "Bash(npx tsc:*)",
-      "Bash(npm run build:*)"
+      "Bash(npm run build:*)",
+      "Bash(npx next lint:*)",
+      "Bash(npx next build:*)"
     ],
     "deny": []
   }

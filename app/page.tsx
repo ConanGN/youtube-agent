@@ -20,6 +20,15 @@ export default function HomePage() {
   // 数据处理模式：replace（替换）或append（追加）
   const [dataMode, setDataMode] = useState<'replace' | 'append'>('replace')
 
+  // 检测数据类型：YouTube链接还是普通CSV数据
+  const isYouTubeData = (urls: string[]): boolean => {
+    return urls.some(url => 
+      url.includes('youtube.com') || 
+      url.includes('youtu.be') || 
+      url.includes('youtube')
+    )
+  }
+
   // 数据获取处理 - 每次获取新数据时先清除旧数据
   const handleDataFetch = useCallback(async (urls: string[], type: DataInputType, options?: any) => {
     setLoading(true)
@@ -38,11 +47,21 @@ export default function HomePage() {
           break
           
         case 'multiple':
-          response = await fetch('/api/youtube/multiple', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ videoUrls: urls }),
-          })
+          // 检测是否为YouTube数据
+          if (isYouTubeData(urls)) {
+            response = await fetch('/api/youtube/multiple', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ videoUrls: urls }),
+            })
+          } else {
+            // 处理普通CSV数据
+            response = await fetch('/api/data/csv', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ data: urls }),
+            })
+          }
           break
           
         case 'channel':

@@ -3,11 +3,11 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { YouTubeVideo, DataInputType } from '@/types'
+import { YouTubeVideo, DataInputType, UnifiedDataItem } from '@/types'
 
 interface AppState {
-  // YouTube数据状态
-  videos: YouTubeVideo[]
+  // 数据状态（支持YouTube和CSV数据）
+  videos: UnifiedDataItem[]
   selectedVideoIds: string[]
   loading: boolean
   error: string | null
@@ -21,9 +21,9 @@ interface AppState {
   showPromptTemplates: boolean
   
   // 数据操作
-  setVideos: (videos: YouTubeVideo[]) => void
-  addVideos: (videos: YouTubeVideo[]) => void
-  updateVideo: (videoId: string, updates: Partial<YouTubeVideo>) => void
+  setVideos: (videos: UnifiedDataItem[]) => void
+  addVideos: (videos: UnifiedDataItem[]) => void
+  updateVideo: (videoId: string, updates: Partial<UnifiedDataItem>) => void
   removeVideos: (videoIds: string[]) => void
   clearVideos: () => void
   
@@ -44,7 +44,7 @@ interface AppState {
   setShowPromptTemplates: (show: boolean) => void
   
   // 工具方法
-  getSelectedVideos: () => YouTubeVideo[]
+  getSelectedVideos: () => UnifiedDataItem[]
   hasVideos: () => boolean
   hasSelectedVideos: () => boolean
 }

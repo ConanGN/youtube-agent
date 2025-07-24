@@ -5,7 +5,7 @@
 
 import React, { useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { YouTubeVideo } from '@/types'
+import { YouTubeVideo, UnifiedDataItem } from '@/types'
 import { useAppStore, useVideoState, useDialogState, useVideoActions, useDialogActions } from '@/store'
 import { YouTubeTable } from '@/components/youtube-table'
 import { EnhancementPanel } from '@/components/ai-enhancement'
@@ -29,7 +29,7 @@ export default function DetailsPage() {
   }, [hasVideos, router])
 
   // 表格数据变化处理
-  const handleTableDataChange = useCallback((updatedData: YouTubeVideo[]) => {
+  const handleTableDataChange = useCallback((updatedData: UnifiedDataItem[]) => {
     setVideos(updatedData)
   }, [setVideos])
 
@@ -87,10 +87,10 @@ export default function DetailsPage() {
                 </button>
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
-                YouTube数据详情
+                数据详情
               </h1>
               <p className="text-gray-600 mt-2 text-sm sm:text-base">
-                管理和优化您的YouTube视频数据
+                管理和优化您的数据内容
               </p>
             </div>
             
@@ -126,10 +126,10 @@ export default function DetailsPage() {
           {/* 统计信息 */}
           <div className="mt-4 pt-4 border-t border-gray-200">
             <div className="grid grid-cols-2 sm:flex sm:items-center sm:space-x-6 gap-2 sm:gap-0 text-xs sm:text-sm text-gray-600">
-              <span>总计: {videos.length} 个视频</span>
-              <span>已选择: {selectedVideoIds.length} 个</span>
-              <span>已编辑: {videos.filter(v => v.isEdited).length} 个</span>
-              <span>AI增强: {videos.filter(v => v.enhancedTitle || v.summarizedDescription).length} 个</span>
+              <span>总计: {videos.length} 条数据</span>
+              <span>已选择: {selectedVideoIds.length} 条</span>
+              <span>已编辑: {videos.filter(v => v.isEdited).length} 条</span>
+              <span>AI增强: {videos.filter(v => v.enhancedTitle || v.summarizedDescription).length} 条</span>
             </div>
           </div>
         </div>

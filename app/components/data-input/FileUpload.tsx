@@ -30,21 +30,11 @@ export function FileUpload({
   const [uploadError, setUploadError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // 验证YouTube URL
+  // 验证URL或数据内容（移除YouTube限制，接受任何非空内容）
   const validateUrl = (url: string): boolean => {
     const trimmedUrl = url.trim()
-    if (!trimmedUrl) return false
-    
-    const youtubePatterns = [
-      /^https?:\/\/(www\.)?(youtube\.com|youtu\.be)/,
-      /youtube\.com\/watch\?v=/,
-      /youtu\.be\//,
-      /youtube\.com\/embed\//,
-      /youtube\.com\/v\//,
-      /youtube\.com\/shorts\//,
-    ]
-    
-    return youtubePatterns.some(pattern => pattern.test(trimmedUrl))
+    // 只要不是空字符串就认为是有效数据
+    return trimmedUrl.length > 0
   }
 
   // 解析CSV文件
@@ -72,10 +62,10 @@ export function FileUpload({
           const urls: string[] = []
           const errors: string[] = []
 
-          // 尝试从不同的列名中找到URL
+          // 尝试从不同的列名中找到数据列
           const possibleColumns = [
-            'url', 'link', 'video_url', 'youtube_url', 'video', 'youtube',
-            'URL', 'LINK', 'VIDEO_URL', 'YOUTUBE_URL', 'VIDEO', 'YOUTUBE'
+            'url', 'link', 'video_url', 'youtube_url', 'video', 'youtube', 'data', 'content',
+            'URL', 'LINK', 'VIDEO_URL', 'YOUTUBE_URL', 'VIDEO', 'YOUTUBE', 'DATA', 'CONTENT'
           ]
 
           let urlColumn = ''
@@ -92,7 +82,7 @@ export function FileUpload({
           }
 
           if (!urlColumn) {
-            setUploadError('CSV文件中未找到包含URL的列。请确保文件包含url、link或video_url等列名。')
+            setUploadError('CSV文件中未找到数据列。请确保文件包含url、link、data或content等列名。')
             return
           }
 
@@ -103,20 +93,20 @@ export function FileUpload({
               if (validateUrl(url.trim())) {
                 urls.push(url.trim())
               } else {
-                errors.push(`第${index + 1}行: "${url}" 不是有效的YouTube链接`)
+                errors.push(`第${index + 1}行: "${url}" 数据为空`)
               }
             }
           })
 
           // 检查解析结果
           if (urls.length === 0) {
-            setUploadError('文件中没有找到有效的YouTube链接')
+            setUploadError('文件中没有找到有效的数据')
             return
           }
 
           // 限制数量
           if (urls.length > 1000) {
-            errors.push(`文件包含${urls.length}个链接，超过最大限制1000个，将只处理前1000个`)
+            errors.push(`文件包含${urls.length}条数据，超过最大限制1000条，将只处理前1000条`)
             urls.splice(1000)
           }
 
@@ -189,7 +179,9 @@ export function FileUpload({
     const sampleData = [
       { url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ' },
       { url: 'https://youtu.be/jNQXAC9IVRw' },
-      { url: 'https://www.youtube.com/watch?v=9bZkp7q19f0' },
+      { url: 'https://example.com/data1' },
+      { data: '示例数据内容1' },
+      { content: '示例文本内容' },
     ]
 
     const csv = Papa.unparse(sampleData)
@@ -198,7 +190,7 @@ export function FileUpload({
     const url = URL.createObjectURL(blob)
     
     link.setAttribute('href', url)
-    link.setAttribute('download', 'youtube_urls_sample.csv')
+    link.setAttribute('download', 'data_sample.csv')
     link.style.visibility = 'hidden'
     document.body.appendChild(link)
     link.click()
@@ -208,7 +200,7 @@ export function FileUpload({
   return (
     <div className={`bg-white rounded-lg shadow-sm border p-6 ${className}`}>
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">CSV文件上传</h3>
+        <h3 className="text-lg font-semibold text-gray-900">CSV数据文件上传</h3>
         <button
           onClick={downloadSampleFile}
           className="text-sm text-blue-600 hover:text-blue-700"
@@ -236,7 +228,7 @@ export function FileUpload({
                 拖拽CSV文件到这里，或点击选择文件
               </p>
               <p className="text-sm text-gray-500 mt-1">
-                支持包含YouTube链接的CSV文件，最大5MB
+                支持任何格式的CSV表格数据文件，最大5MB
               </p>
             </div>
             <input
@@ -265,8 +257,8 @@ export function FileUpload({
             </h4>
             <div className="text-sm text-green-700 space-y-1">
               <p>总行数: {parsedResult.totalRows}</p>
-              <p>有效链接: {parsedResult.validRows}</p>
-              <p>准备处理: {parsedResult.urls.length} 个视频</p>
+              <p>有效数据: {parsedResult.validRows}</p>
+              <p>准备处理: {parsedResult.urls.length} 条数据</p>
             </div>
           </div>
 
@@ -298,7 +290,7 @@ export function FileUpload({
               disabled={loading || parsedResult.urls.length === 0}
               className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? '处理中...' : `处理 ${parsedResult.urls.length} 个视频`}
+              {loading ? '处理中...' : `处理 ${parsedResult.urls.length} 条数据`}
             </button>
           </div>
         </div>
@@ -327,9 +319,9 @@ export function FileUpload({
         </h4>
         <ul className="text-sm text-blue-700 space-y-1">
           <li>• 文件必须是CSV格式(.csv)</li>
-          <li>• 包含标题行，列名可以是: url, link, video_url, youtube_url</li>
-          <li>• 每行一个YouTube链接</li>
-          <li>• 最大支持1000个链接</li>
+          <li>• 包含标题行，列名可以是: url, link, data, content等</li>
+          <li>• 每行包含要处理的数据内容</li>
+          <li>• 最大支持1000条数据</li>
           <li>• 文件大小不超过5MB</li>
         </ul>
       </div>

@@ -20,7 +20,7 @@ import {
   VisibilityState,
   RowSelectionState,
 } from '@tanstack/react-table'
-import { YouTubeVideo, EditHistory } from '@/types'
+import { YouTubeVideo, EditHistory, UnifiedDataItem } from '@/types'
 import { EditableCell, NumberEditableCell } from './EditableCell'
 import { Filter, GlobalFilter, ColumnVisibility, AdvancedFilterPanel } from './FilterComponents'
 
@@ -72,8 +72,8 @@ function useSkipper() {
 
 // 表格组件属性
 interface YouTubeTableProps {
-  data: YouTubeVideo[]
-  onDataChange?: (data: YouTubeVideo[]) => void
+  data: UnifiedDataItem[]
+  onDataChange?: (data: UnifiedDataItem[]) => void
   onSelectionChange?: (selectedIds: string[]) => void
   loading?: boolean
   className?: string
@@ -92,7 +92,24 @@ export function YouTubeTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({})
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
+    // 默认显示基本列
+    select: true,
+    thumbnail: true,
+    title: true,
+    'channelTitle': true,
+    publishedAt: true,
+    originalData: true,
+    description: true,
+    // 默认隐藏YouTube特有的列（如果没有数据）
+    viewCount: false,
+    likeCount: false,
+    duration: false,
+    // 默认隐藏AI增强列
+    enhancedTitle: false,
+    summarizedDescription: false,
+    translatedTitle: false,
+  })
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
 
   // 防止自动重置页码
@@ -101,6 +118,22 @@ export function YouTubeTable({
   // 同步外部数据变化
   React.useEffect(() => {
     setTableData(data)
+    
+    // 根据数据类型动态调整列可见性
+    if (data.length > 0) {
+      const hasYouTubeData = data.some(item => item.videoUrl)
+      const hasCSVData = data.some(item => (item as any).originalData && !item.videoUrl)
+      
+      setColumnVisibility(prev => ({
+        ...prev,
+        // YouTube特有列
+        viewCount: hasYouTubeData,
+        likeCount: hasYouTubeData,
+        duration: hasYouTubeData,
+        // CSV数据列
+        originalData: hasCSVData,
+      }))
+    }
   }, [data])
 
   // 通知选择变化
@@ -110,7 +143,7 @@ export function YouTubeTable({
   }, [rowSelection, onSelectionChange])
 
   // 列定义
-  const columns = useMemo<ColumnDef<YouTubeVideo>[]>(
+  const columns = useMemo<ColumnDef<UnifiedDataItem>[]>(
     () => [
       // 选择列
       {
@@ -138,16 +171,25 @@ export function YouTubeTable({
       {
         accessorKey: 'thumbnail',
         header: '缩略图',
-        cell: ({ getValue, row }) => (
-          <div className="flex items-center justify-center p-1">
-            <img
-              src={getValue() as string}
-              alt={row.original.title}
-              className="w-16 h-12 object-cover rounded border"
-              loading="lazy"
-            />
-          </div>
-        ),
+        cell: ({ getValue, row }) => {
+          const thumbnail = getValue() as string
+          return (
+            <div className="flex items-center justify-center p-1">
+              {thumbnail ? (
+                <img
+                  src={thumbnail}
+                  alt={row.original.title}
+                  className="w-16 h-12 object-cover rounded border"
+                  loading="lazy"
+                />
+              ) : (
+                <div className="w-16 h-12 bg-gray-200 rounded border flex items-center justify-center text-gray-400 text-xs">
+                  📄
+                </div>
+              )}
+            </div>
+          )
+        },
         size: 80,
         enableSorting: false,
         enableColumnFilter: false,
@@ -155,11 +197,11 @@ export function YouTubeTable({
       // 标题列（可编辑）
       {
         accessorKey: 'title',
-        header: '视频标题',
+        header: '标题',
         cell: (props) => (
           <EditableCell
             {...props}
-            placeholder="输入视频标题"
+            placeholder="输入标题"
             validator={(value) => value.length > 0 || '标题不能为空'}
           />
         ),
@@ -168,15 +210,21 @@ export function YouTubeTable({
         },
         minSize: 200,
       },
-      // 频道名称列
+      // 频道名称列或分类列
       {
         accessorKey: 'channelTitle',
-        header: '频道',
-        cell: ({ getValue }) => (
-          <div className="p-1 truncate" title={getValue() as string}>
-            {getValue() as string}
-          </div>
-        ),
+        header: '频道/分类',
+        cell: ({ getValue, row }) => {
+          const channelTitle = getValue() as string
+          const category = (row.original as any).category
+          const displayValue = channelTitle || category || '-'
+          
+          return (
+            <div className="p-1 truncate" title={displayValue}>
+              {displayValue}
+            </div>
+          )
+        },
         meta: {
           filterVariant: 'select',
         },
@@ -196,45 +244,81 @@ export function YouTubeTable({
         },
         size: 120,
       },
-      // 播放量列
+      // 原始数据列（对CSV数据显示）
+      {
+        accessorKey: 'originalData',
+        header: '原始数据',
+        cell: ({ getValue, row }) => {
+          const originalData = getValue() as string
+          // 如果有videoUrl说明是YouTube数据，不显示原始数据列
+          if (row.original.videoUrl) {
+            return <div className="p-1 text-center text-gray-400">-</div>
+          }
+          return (
+            <div className="p-1 truncate max-w-xs" title={originalData}>
+              {originalData || '-'}
+            </div>
+          )
+        },
+        meta: {
+          filterVariant: 'text',
+        },
+        size: 150,
+      },
+      // 播放量列（仅对YouTube数据显示）
       {
         accessorKey: 'viewCount',
         header: '播放量',
-        cell: (props) => (
-          <NumberEditableCell
-            {...props}
-            format="compact"
-          />
-        ),
+        cell: (props) => {
+          const value = props.getValue()
+          if (value === undefined || value === null) {
+            return <div className="p-1 text-center text-gray-400">-</div>
+          }
+          return (
+            <NumberEditableCell
+              {...props}
+              format="compact"
+            />
+          )
+        },
         meta: {
           filterVariant: 'range',
         },
         size: 100,
       },
-      // 点赞量列
+      // 点赞量列（仅对YouTube数据显示）
       {
         accessorKey: 'likeCount',
         header: '点赞量',
-        cell: (props) => (
-          <NumberEditableCell
-            {...props}
-            format="compact"
-          />
-        ),
+        cell: (props) => {
+          const value = props.getValue()
+          if (value === undefined || value === null) {
+            return <div className="p-1 text-center text-gray-400">-</div>
+          }
+          return (
+            <NumberEditableCell
+              {...props}
+              format="compact"
+            />
+          )
+        },
         meta: {
           filterVariant: 'range',
         },
         size: 100,
       },
-      // 时长列
+      // 时长列（仅对YouTube数据显示）
       {
         accessorKey: 'duration',
         header: '时长',
-        cell: ({ getValue }) => (
-          <div className="p-1 text-center text-sm font-mono">
-            {getValue() as string}
-          </div>
-        ),
+        cell: ({ getValue }) => {
+          const duration = getValue() as string
+          return (
+            <div className="p-1 text-center text-sm font-mono">
+              {duration || '-'}
+            </div>
+          )
+        },
         size: 80,
       },
       // 描述列（可编辑长文本）
@@ -245,7 +329,7 @@ export function YouTubeTable({
           <EditableCell
             {...props}
             isLongText={true}
-            placeholder="输入视频描述"
+            placeholder="输入描述"
           />
         ),
         meta: {
@@ -290,24 +374,41 @@ export function YouTubeTable({
         header: '操作',
         cell: ({ row }) => (
           <div className="flex space-x-1">
-            <a
-              href={row.original.videoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
-            >
-              查看
-            </a>
-            <button
-              onClick={() => {
-                // 复制视频链接
-                navigator.clipboard.writeText(row.original.videoUrl)
-                // 这里可以添加Toast提示
-              }}
-              className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
-            >
-              复制
-            </button>
+            {row.original.videoUrl ? (
+              <>
+                <a
+                  href={row.original.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                >
+                  查看
+                </a>
+                <button
+                  onClick={() => {
+                    // 复制视频链接
+                    navigator.clipboard.writeText(row.original.videoUrl || '')
+                    // 这里可以添加Toast提示
+                  }}
+                  className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                >
+                  复制
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => {
+                  // 复制原始数据
+                  const originalData = (row.original as any).originalData
+                  if (originalData) {
+                    navigator.clipboard.writeText(originalData)
+                  }
+                }}
+                className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+              >
+                复制数据
+              </button>
+            )}
           </div>
         ),
         size: 100,
@@ -380,7 +481,11 @@ export function YouTubeTable({
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
-    filterFns: {},
+    filterFns: {
+      fuzzy: (row: any, columnId: string, value: any, addMeta: any) => {
+        return true // 简单的模糊匹配实现
+      }
+    },
     onRowSelectionChange: setRowSelection,
     autoResetPageIndex,
     enableRowSelection: true,
@@ -406,7 +511,7 @@ export function YouTubeTable({
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="loading-spinner"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
         <span className="ml-3">加载数据中...</span>
       </div>
     )
