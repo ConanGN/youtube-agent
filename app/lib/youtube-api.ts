@@ -252,7 +252,14 @@ export class YouTubeAPIClient {
     for (const pattern of patterns) {
       const match = url.match(pattern)
       if (match?.[1]) {
-        return match[1]
+        // 对URL编码的字符进行解码，支持中文等非ASCII字符
+        try {
+          return decodeURIComponent(match[1])
+        } catch (error) {
+          // 如果解码失败，返回原始字符串
+          console.warn('URL解码失败，使用原始字符串:', match[1])
+          return match[1]
+        }
       }
     }
     return null
@@ -266,7 +273,7 @@ export class YouTubeAPIClient {
       console.log('正在解析频道ID:', identifier)
       
       // 如果已经是频道ID格式，直接返回
-      if (/^UC[\w-]{21}[AQgw]$/.test(identifier)) {
+      if (/^UC[\w-]{22}$/.test(identifier)) {
         console.log('已是频道ID格式，直接返回')
         return identifier
       }

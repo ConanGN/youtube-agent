@@ -29,12 +29,12 @@ export function ChannelInput({
     const trimmedUrl = url.trim()
     if (!trimmedUrl) return false
     
-    // YouTube频道URL格式检查
+    // YouTube频道URL格式检查 - 支持URL编码的字符
     const channelPatterns = [
-      /^https?:\/\/(www\.)?youtube\.com\/channel\/[UC][\w-]{21}[AQgw]$/,
-      /^https?:\/\/(www\.)?youtube\.com\/c\/[\w-]+$/,
-      /^https?:\/\/(www\.)?youtube\.com\/user\/[\w-]+$/,
-      /^https?:\/\/(www\.)?youtube\.com\/@[\w-]+$/,
+      /^https?:\/\/(www\.)?youtube\.com\/channel\/UC[\w-]{22}$/,  // 修正频道ID格式：UC开头+22字符
+      /^https?:\/\/(www\.)?youtube\.com\/c\/[\w\-%]+$/,  // 支持URL编码的%字符
+      /^https?:\/\/(www\.)?youtube\.com\/user\/[\w\-%]+$/,  // 支持URL编码的%字符
+      /^https?:\/\/(www\.)?youtube\.com\/@[\w\-%]+$/,  // 支持URL编码的%字符，如中文编码
     ]
     
     return channelPatterns.some(pattern => pattern.test(trimmedUrl))
@@ -46,16 +46,16 @@ export function ChannelInput({
     if (!trimmedId) return false
     
     // YouTube频道ID格式检查（通常以UC开头，总共24字符长度）
-    return /^UC[\w-]{21}[AQgw]$/.test(trimmedId)
+    return /^UC[\w-]{22}$/.test(trimmedId)  // 修正为UC开头+22字符，总共24字符
   }
 
   // 从URL提取频道ID
   const extractChannelId = (url: string): string | null => {
     const patterns = [
-      /youtube\.com\/channel\/([UC][\w-]{21}[AQgw])/,
-      /youtube\.com\/c\/([\w-]+)/,
-      /youtube\.com\/user\/([\w-]+)/,
-      /youtube\.com\/@([\w-]+)/,
+      /youtube\.com\/channel\/(UC[\w-]{22})/,  // 修正频道ID格式：UC开头+22字符
+      /youtube\.com\/c\/([\w\-%]+)/,  // 支持URL编码的%字符
+      /youtube\.com\/user\/([\w\-%]+)/,  // 支持URL编码的%字符
+      /youtube\.com\/@([\w\-%]+)/,  // 支持URL编码的%字符，如中文编码
     ]
 
     for (const pattern of patterns) {
