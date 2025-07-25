@@ -56,6 +56,11 @@ interface FilterProps {
 export function Filter({ column }: FilterProps) {
   const { filterVariant } = column.columnDef.meta ?? {}
   const columnFilterValue = column.getFilterValue()
+  
+  // 获取列宽来决定显示方式，使用更智能的判断逻辑
+  const columnSize = column.getSize()
+  // 对于数值范围筛选器，需要更宽的空间来水平排列两个输入框
+  const isNarrow = filterVariant === 'range' ? columnSize < 160 : columnSize < 120
 
   const sortedUniqueValues = React.useMemo(
     () =>
@@ -70,41 +75,79 @@ export function Filter({ column }: FilterProps) {
   // 数值范围筛选器
   if (filterVariant === 'range') {
     return (
-      <div className="flex flex-col space-y-2">
-        <div className="flex space-x-2">
-          <DebouncedInput
-            type="number"
-            value={(columnFilterValue as [number, number])?.[0] ?? ''}
-            onChange={(value) =>
-              column.setFilterValue((old: [number, number]) => [value, old?.[1]])
-            }
-            placeholder={`最小值 ${
-              column.getFacetedMinMaxValues()?.[0] !== undefined
-                ? `(${column.getFacetedMinMaxValues()?.[0]})`
-                : ''
-            }`}
-            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-          />
-          <DebouncedInput
-            type="number"
-            value={(columnFilterValue as [number, number])?.[1] ?? ''}
-            onChange={(value) =>
-              column.setFilterValue((old: [number, number]) => [old?.[0], value])
-            }
-            placeholder={`最大值 ${
-              column.getFacetedMinMaxValues()?.[1]
-                ? `(${column.getFacetedMinMaxValues()?.[1]})`
-                : ''
-            }`}
-            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
-          />
-        </div>
-        <button
-          onClick={() => column.setFilterValue(undefined)}
-          className="text-xs text-gray-500 hover:text-gray-700 self-start"
-        >
-          清除
-        </button>
+      <div className="flex flex-col space-y-1">
+        {isNarrow ? (
+          // 紧凑模式：垂直排列，增加间距，减小字体
+          <div className="space-y-1.5">
+            <DebouncedInput
+              type="number"
+              value={(columnFilterValue as [number, number])?.[0] ?? ''}
+              onChange={(value) =>
+                column.setFilterValue((old: [number, number]) => [value, old?.[1]])
+              }
+              placeholder="最小值"
+              className="w-full px-1 py-0.5 border border-gray-300 rounded text-xs h-6"
+            />
+            <DebouncedInput
+              type="number"
+              value={(columnFilterValue as [number, number])?.[1] ?? ''}
+              onChange={(value) =>
+                column.setFilterValue((old: [number, number]) => [old?.[0], value])
+              }
+              placeholder="最大值"
+              className="w-full px-1 py-0.5 border border-gray-300 rounded text-xs h-6"
+            />
+            {columnFilterValue && (
+              <button
+                onClick={() => column.setFilterValue(undefined)}
+                className="text-xs text-gray-500 hover:text-gray-700 self-start px-1 h-4 leading-none"
+                title="清除筛选"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        ) : (
+          // 正常模式：水平排列
+          <div className="space-y-1">
+            <div className="flex space-x-1">
+              <DebouncedInput
+                type="number"
+                value={(columnFilterValue as [number, number])?.[0] ?? ''}
+                onChange={(value) =>
+                  column.setFilterValue((old: [number, number]) => [value, old?.[1]])
+                }
+                placeholder={columnSize > 200 ? `最小值 ${
+                  column.getFacetedMinMaxValues()?.[0] !== undefined
+                    ? `(${column.getFacetedMinMaxValues()?.[0]})`
+                    : ''
+                }` : "最小值"}
+                className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-sm"
+              />
+              <DebouncedInput
+                type="number"
+                value={(columnFilterValue as [number, number])?.[1] ?? ''}
+                onChange={(value) =>
+                  column.setFilterValue((old: [number, number]) => [old?.[0], value])
+                }
+                placeholder={columnSize > 200 ? `最大值 ${
+                  column.getFacetedMinMaxValues()?.[1]
+                    ? `(${column.getFacetedMinMaxValues()?.[1]})`
+                    : ''
+                }` : "最大值"}
+                className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-sm"
+              />
+            </div>
+            {columnFilterValue && (
+              <button
+                onClick={() => column.setFilterValue(undefined)}
+                className="text-xs text-gray-500 hover:text-gray-700 self-start"
+              >
+                清除
+              </button>
+            )}
+          </div>
+        )}
       </div>
     )
   }
@@ -112,45 +155,65 @@ export function Filter({ column }: FilterProps) {
   // 选择器筛选器
   if (filterVariant === 'select') {
     return (
-      <select
-        value={columnFilterValue?.toString() ?? ''}
-        onChange={(e) => column.setFilterValue(e.target.value || undefined)}
-        className="w-full px-2 py-1 border border-gray-300 rounded text-sm"
-      >
-        <option value="">全部</option>
-        {sortedUniqueValues.map((value) => (
-          <option value={value} key={value}>
-            {value}
-          </option>
-        ))}
-      </select>
+      <div className="flex flex-col space-y-1">
+        <select
+          value={columnFilterValue?.toString() ?? ''}
+          onChange={(e) => column.setFilterValue(e.target.value || undefined)}
+          className={`w-full border border-gray-300 rounded ${
+            isNarrow ? 'px-1 py-1 text-xs' : 'px-2 py-1 text-sm'
+          }`}
+        >
+          <option value="">全部</option>
+          {sortedUniqueValues.map((value) => (
+            <option value={value} key={value}>
+              {isNarrow && String(value).length > 8 ? String(value).slice(0, 8) + '...' : value}
+            </option>
+          ))}
+        </select>
+        {isNarrow && columnFilterValue && (
+          <button
+            onClick={() => column.setFilterValue(undefined)}
+            className="text-xs text-gray-500 hover:text-gray-700 self-start px-1"
+            title="清除筛选"
+          >
+            ✕
+          </button>
+        )}
+      </div>
     )
   }
 
   // 文本筛选器（带自动完成）
   return (
-    <div className="flex flex-col space-y-1">
+    <div className={`flex flex-col ${isNarrow ? 'space-y-1.5' : 'space-y-1'}`}>
       <datalist id={column.id + 'list'}>
         {sortedUniqueValues.map((value: any) => (
           <option value={value} key={value} />
         ))}
       </datalist>
-      <DebouncedInput
-        type="text"
-        value={(columnFilterValue ?? '') as string}
-        onChange={(value) => column.setFilterValue(value)}
-        placeholder={`搜索... (${column.getFacetedUniqueValues().size})`}
-        className="w-32 px-2 py-1 border border-gray-300 rounded text-sm"
-        list={column.id + 'list'}
-      />
-      {columnFilterValue && (
-        <button
-          onClick={() => column.setFilterValue(undefined)}
-          className="text-xs text-gray-500 hover:text-gray-700 self-start"
-        >
-          清除
-        </button>
-      )}
+      <div className="relative">
+        <DebouncedInput
+          type="text"
+          value={(columnFilterValue ?? '') as string}
+          onChange={(value) => column.setFilterValue(value)}
+          placeholder={isNarrow ? '搜索...' : `搜索... (${column.getFacetedUniqueValues().size})`}
+          className={`w-full border border-gray-300 rounded ${
+            isNarrow ? 'px-1 py-0.5 text-xs pr-6 h-6' : 'px-2 py-1 text-sm'
+          }`}
+          list={column.id + 'list'}
+        />
+        {columnFilterValue && (
+          <button
+            onClick={() => column.setFilterValue(undefined)}
+            className={`absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 ${
+              isNarrow ? 'text-xs w-4 h-4 flex items-center justify-center' : 'text-sm'
+            }`}
+            title="清除筛选"
+          >
+            ✕
+          </button>
+        )}
+      </div>
     </div>
   )
 }

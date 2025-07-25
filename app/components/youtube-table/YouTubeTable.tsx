@@ -201,7 +201,7 @@ export function YouTubeTable({
         meta: {
           filterVariant: 'text',
         },
-        minSize: 200,
+        minSize: 120, // 减少最小宽度，配合响应式筛选器
       },
       // 频道名称列或分类列
       {
@@ -216,7 +216,8 @@ export function YouTubeTable({
         meta: {
           filterVariant: 'select',
         },
-        size: 150,
+        size: 120,
+        minSize: 80, // 减少最小宽度，配合响应式筛选器
       },
       // 发布时间列
       {
@@ -255,7 +256,8 @@ export function YouTubeTable({
         meta: {
           filterVariant: 'text',
         },
-        size: 150,
+        size: 120,
+        minSize: 100, // 减少最小宽度，配合响应式筛选器
       },
       // 播放量列（仅对YouTube数据显示）
       {
@@ -277,6 +279,7 @@ export function YouTubeTable({
           filterVariant: 'range',
         },
         size: 100,
+        minSize: 80, // 减少最小宽度，配合响应式筛选器
       },
       // 点赞量列（仅对YouTube数据显示）
       {
@@ -298,6 +301,7 @@ export function YouTubeTable({
           filterVariant: 'range',
         },
         size: 100,
+        minSize: 80, // 减少最小宽度，配合响应式筛选器
       },
       // 时长列（仅对YouTube数据显示）
       {
@@ -331,7 +335,7 @@ export function YouTubeTable({
         meta: {
           filterVariant: 'text',
         },
-        minSize: 200,
+        minSize: 120, // 减少最小宽度，配合响应式筛选器
       },
       // AI优化标题列（可编辑）
       {
@@ -346,7 +350,7 @@ export function YouTubeTable({
         meta: {
           filterVariant: 'text',
         },
-        minSize: 200,
+        minSize: 120, // 减少最小宽度，配合响应式筛选器
       },
       // AI摘要列（可编辑）
       {
@@ -362,7 +366,7 @@ export function YouTubeTable({
         meta: {
           filterVariant: 'text',
         },
-        minSize: 200,
+        minSize: 120, // 减少最小宽度，配合响应式筛选器
       },
       // 操作列
       {
