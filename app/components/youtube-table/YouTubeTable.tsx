@@ -134,6 +134,10 @@ export function YouTubeTable({
         originalData: hasCSVData,
       }))
     }
+    
+    // 当数据更新时，清除所有筛选器避免数据不一致
+    setColumnFilters([])
+    setGlobalFilter('')
   }, [data])
 
   // 通知选择变化
@@ -483,7 +487,15 @@ export function YouTubeTable({
     onColumnVisibilityChange: setColumnVisibility,
     filterFns: {
       fuzzy: (row: any, columnId: string, value: any, addMeta: any) => {
-        return true // 简单的模糊匹配实现
+        // 改进的模糊匹配实现
+        if (!value) return true
+        const itemValue = row.getValue(columnId)
+        if (itemValue == null) return false
+        
+        const searchValue = String(value).toLowerCase()
+        const cellValue = String(itemValue).toLowerCase()
+        
+        return cellValue.includes(searchValue)
       }
     },
     onRowSelectionChange: setRowSelection,

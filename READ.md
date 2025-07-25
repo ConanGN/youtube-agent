@@ -38,3 +38,20 @@
   - 清理了 `node_modules/.cache` 缓存目录
   - 重新启动开发服务器解决模块缺失问题
   - 修复了 "Cannot find module './329.js'" 和 "./638.js" 等webpack运行时错误
+- **修复高级筛选导致数据消失问题**：
+  - 修复 `FilterComponents.tsx` 中的类型定义问题，将 `YouTubeVideo` 改为 `UnifiedDataItem`
+  - 修复筛选器接口类型不匹配：
+    - `FilterProps` 接口更新为支持 `UnifiedDataItem` 类型
+    - `ColumnVisibilityProps` 接口更新为支持 `UnifiedDataItem` 类型  
+    - `AdvancedFilterPanelProps` 接口更新为支持 `UnifiedDataItem` 类型
+  - 改进表格中的 `fuzzy` 筛选函数实现，添加空值检查和字符串匹配逻辑
+  - 在数据更新时自动清除筛选器状态，避免筛选条件与新数据不匹配导致显示异常
+  - 确保CSV数据和YouTube数据都能正确使用高级筛选功能
+- **修复静态资源404错误**：
+  - 强制停止所有Node.js开发进程
+  - 清理 `.next` 构建缓存目录
+  - 清理 `node_modules/.cache` 缓存目录  
+  - 清理 `.swc` 编译缓存目录
+  - 删除 `tsconfig.tsbuildinfo` TypeScript构建信息文件
+  - 重新启动开发服务器解决静态资源路径问题
+  - 修复 "GET /_next/static/css/app/layout.css 404" 等静态资源加载错误

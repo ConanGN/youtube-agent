@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { Column, Table } from '@tanstack/react-table'
-import { YouTubeVideo } from '@/types'
+import { YouTubeVideo, UnifiedDataItem } from '@/types'
 
 // 防抖输入组件
 interface DebouncedInputProps {
@@ -49,8 +49,8 @@ export function DebouncedInput({
 
 // 通用筛选器组件
 interface FilterProps {
-  column: Column<YouTubeVideo, unknown>
-  table?: Table<YouTubeVideo>
+  column: Column<UnifiedDataItem, unknown>
+  table?: Table<UnifiedDataItem>
 }
 
 export function Filter({ column }: FilterProps) {
@@ -190,7 +190,7 @@ export function GlobalFilter({
 
 // 列可见性控制组件
 interface ColumnVisibilityProps {
-  table: Table<YouTubeVideo>
+  table: Table<UnifiedDataItem>
 }
 
 export function ColumnVisibility({ table }: ColumnVisibilityProps) {
@@ -251,7 +251,7 @@ export function ColumnVisibility({ table }: ColumnVisibilityProps) {
 
 // 高级筛选面板
 interface AdvancedFilterPanelProps {
-  table: Table<YouTubeVideo>
+  table: Table<UnifiedDataItem>
   isOpen: boolean
   onClose: () => void
 }
