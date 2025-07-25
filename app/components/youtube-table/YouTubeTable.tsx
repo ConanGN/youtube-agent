@@ -173,6 +173,7 @@ export function YouTubeTable({
           </div>
         ),
         size: 50,
+        enableResizing: false,
       },
       // 缩略图列
       {
@@ -184,6 +185,7 @@ export function YouTubeTable({
         size: 80,
         enableSorting: false,
         enableColumnFilter: false,
+        enableResizing: true,
       },
       // 标题列（可编辑）
       {
@@ -408,6 +410,7 @@ export function YouTubeTable({
         size: 100,
         enableSorting: false,
         enableColumnFilter: false,
+        enableResizing: true,
       },
     ],
     []
@@ -478,6 +481,11 @@ export function YouTubeTable({
     onColumnSizingChange: setColumnSizing,
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
+    defaultColumn: {
+      minSize: 50,
+      maxSize: 800,
+      size: 150,
+    },
     filterFns: {
       fuzzy: (row: any, columnId: string, value: any, addMeta: any) => {
         // 改进的模糊匹配实现
@@ -527,10 +535,15 @@ export function YouTubeTable({
     <div className={`space-y-4 ${className}`}>
       {/* 表格工具栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-4">
-        <GlobalFilter
-          globalFilter={globalFilter}
-          setGlobalFilter={setGlobalFilter}
-        />
+        <div className="flex flex-col space-y-2">
+          <GlobalFilter
+            globalFilter={globalFilter}
+            setGlobalFilter={setGlobalFilter}
+          />
+          <div className="text-xs text-gray-400">
+            💡 提示：将鼠标悬停在列边界上可拖拽调节列宽
+          </div>
+        </div>
         
         <div className="flex items-center space-x-2">
           <button
@@ -548,15 +561,24 @@ export function YouTubeTable({
 
       {/* 表格 */}
       <div className="overflow-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full divide-y divide-gray-200">
+        <table 
+          className="min-w-full divide-y divide-gray-200"
+          style={{ 
+            width: table.getCenterTotalSize(),
+            tableLayout: 'fixed' 
+          }}
+        >
           <thead className="bg-gray-50">
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative"
-                    style={{ width: header.getSize() }}
+                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200 last:border-r-0"
+                    style={{ 
+                      width: header.getSize(),
+                      position: 'relative',
+                    }}
                   >
                     {header.isPlaceholder ? null : (
                       <div className="space-y-1">
@@ -585,12 +607,37 @@ export function YouTubeTable({
                     {/* 列宽调节手柄 */}
                     {header.column.getCanResize() && (
                       <div
-                        onMouseDown={header.getResizeHandler()}
-                        onTouchStart={header.getResizeHandler()}
-                        className={`absolute top-0 right-0 h-full w-1 bg-gray-300 cursor-col-resize opacity-0 hover:opacity-100 ${
-                          header.column.getIsResizing() ? 'opacity-100 bg-blue-500' : ''
-                        }`}
-                      />
+                        {...{
+                          onMouseDown: header.getResizeHandler(),
+                          onTouchStart: header.getResizeHandler(),
+                          className: `absolute top-0 right-0 h-full w-4 cursor-col-resize group ${
+                            header.column.getIsResizing() ? 'bg-blue-300' : 'hover:bg-blue-100'
+                          }`,
+                          style: {
+                            marginRight: '-8px',
+                            zIndex: 20,
+                            userSelect: 'none',
+                            transform: header.column.getIsResizing() ? 'scaleX(1.2)' : 'scaleX(1)',
+                            transition: 'all 0.2s ease',
+                          },
+                        }}
+                        title="拖拽调节列宽"
+                      >
+                        {/* 可见的拖拽线 */}
+                        <div 
+                          className={`absolute top-0 left-1/2 transform -translate-x-1/2 w-0.5 h-full transition-all ${
+                            header.column.getIsResizing() 
+                              ? 'bg-blue-600 w-1' 
+                              : 'bg-gray-300 group-hover:bg-blue-500 group-hover:w-1'
+                          }`}
+                        />
+                        {/* 拖拽把手 */}
+                        <div 
+                          className={`absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-8 bg-gray-400 rounded opacity-0 group-hover:opacity-100 transition-all ${
+                            header.column.getIsResizing() ? 'opacity-100 bg-blue-600' : ''
+                          }`}
+                        />
+                      </div>
                     )}
                   </th>
                 ))}
@@ -608,8 +655,11 @@ export function YouTubeTable({
                 {row.getVisibleCells().map((cell) => (
                   <td
                     key={cell.id}
-                    className="px-2 py-2 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100 last:border-r-0"
-                    style={{ width: cell.column.getSize() }}
+                    className="px-2 py-2 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200 last:border-r-0"
+                    style={{ 
+                      width: cell.column.getSize(),
+                      maxWidth: cell.column.getSize(),
+                    }}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </td>
