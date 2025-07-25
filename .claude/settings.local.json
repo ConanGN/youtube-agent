@@ -23,7 +23,8 @@
       "Bash(npx next lint:*)",
       "Bash(npx next build:*)",
       "Bash(taskkill:*)",
-      "Bash(if exist tsconfig.tsbuildinfo del tsconfig.tsbuildinfo)"
+      "Bash(if exist tsconfig.tsbuildinfo del tsconfig.tsbuildinfo)",
+      "Bash(grep:*)"
     ],
     "deny": []
   }

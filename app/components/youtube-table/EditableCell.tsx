@@ -5,9 +5,10 @@
 
 import React, { useState, useEffect } from 'react'
 import { CellContext } from '@tanstack/react-table'
-import { YouTubeVideo } from '@/types'
+import { YouTubeVideo, UnifiedDataItem } from '@/types'
+import { CellEditDialog } from './CellEditDialog'
 
-interface EditableCellProps extends CellContext<YouTubeVideo, unknown> {
+interface EditableCellProps extends CellContext<UnifiedDataItem, unknown> {
   isLongText?: boolean
   placeholder?: string
   validator?: (value: string) => boolean | string
@@ -16,15 +17,17 @@ interface EditableCellProps extends CellContext<YouTubeVideo, unknown> {
 export function EditableCell({
   getValue,
   row: { index },
-  column: { id },
+  column,
   table,
   isLongText = false,
   placeholder = '',
   validator,
 }: EditableCellProps) {
+  const id = column.id
   const initialValue = getValue() as string
   const [value, setValue] = useState(initialValue || '')
   const [isEditing, setIsEditing] = useState(false)
+  const [showDialog, setShowDialog] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // 当初始值改变时同步状态
@@ -80,6 +83,17 @@ export function EditableCell({
     table.options.meta?.updateData(index, id, value)
   }
 
+  // 处理弹窗保存
+  const handleDialogSave = (newValue: string) => {
+    // 保存编辑历史
+    if (table.options.meta?.addEditHistory) {
+      table.options.meta.addEditHistory(index, id, initialValue || '', newValue)
+    }
+
+    // 更新数据
+    table.options.meta?.updateData(index, id, newValue)
+  }
+
   // 处理键盘事件
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
@@ -102,7 +116,7 @@ export function EditableCell({
 
   // 处理双击编辑
   const handleDoubleClick = () => {
-    setIsEditing(true)
+    setShowDialog(true)
   }
 
   // 渲染编辑状态
@@ -147,23 +161,51 @@ export function EditableCell({
     )
   }
 
+  // 计算显示文本（截断处理）
+  const getDisplayText = (text: string, maxLength: number = 50) => {
+    if (!text) return ''
+    if (text.length <= maxLength) return text
+    return text.substring(0, maxLength) + '...'
+  }
+
   // 渲染显示状态
   return (
-    <div
-      className="p-1 cursor-pointer hover:bg-gray-50 min-h-[32px] flex items-center"
-      onDoubleClick={handleDoubleClick}
-      title="双击编辑"
-    >
-      {value ? (
-        <span className={`${isLongText ? 'line-clamp-2' : 'truncate'} w-full`}>
-          {value}
-        </span>
-      ) : (
-        <span className="text-gray-400 italic">
-          {placeholder || '双击编辑'}
-        </span>
-      )}
-    </div>
+    <>
+      <div
+        className="p-1 cursor-pointer hover:bg-gray-50 min-h-[32px] flex items-center group"
+        onDoubleClick={handleDoubleClick}
+        title={`双击查看完整内容并编辑\n完整内容: ${value}`}
+      >
+        {value ? (
+          <div className="w-full overflow-hidden">
+            <span className="text-gray-900">
+              {getDisplayText(value, isLongText ? 100 : 50)}
+            </span>
+            {value.length > (isLongText ? 100 : 50) && (
+              <span className="text-blue-500 ml-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                [查看全部]
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-gray-400 italic">
+            {placeholder || '双击编辑'}
+          </span>
+        )}
+      </div>
+      
+      {/* 编辑弹窗 */}
+      <CellEditDialog
+        isOpen={showDialog}
+        onClose={() => setShowDialog(false)}
+        title={typeof column.columnDef.header === 'string' ? column.columnDef.header : id}
+        value={initialValue || ''}
+        placeholder={placeholder}
+        isLongText={isLongText}
+        validator={validator}
+        onSave={handleDialogSave}
+      />
+    </>
   )
 }
 
@@ -176,7 +218,7 @@ export function NumberEditableCell({
   min = 0,
   max,
   format = 'number',
-}: CellContext<YouTubeVideo, unknown> & {
+}: CellContext<UnifiedDataItem, unknown> & {
   min?: number
   max?: number
   format?: 'number' | 'compact'

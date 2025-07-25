@@ -19,9 +19,11 @@ import {
   SortingState,
   VisibilityState,
   RowSelectionState,
+  ColumnSizingState,
 } from '@tanstack/react-table'
 import { YouTubeVideo, EditHistory, UnifiedDataItem } from '@/types'
 import { EditableCell, NumberEditableCell } from './EditableCell'
+import { ThumbnailEditableCell } from './ThumbnailEditableCell'
 import { Filter, GlobalFilter, ColumnVisibility, AdvancedFilterPanel } from './FilterComponents'
 
 // 复选框组件
@@ -92,6 +94,7 @@ export function YouTubeTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [globalFilter, setGlobalFilter] = useState('')
   const [sorting, setSorting] = useState<SortingState>([])
+  const [columnSizing, setColumnSizing] = useState<ColumnSizingState>({})
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     // 默认显示基本列
     select: true,
@@ -175,25 +178,9 @@ export function YouTubeTable({
       {
         accessorKey: 'thumbnail',
         header: '缩略图',
-        cell: ({ getValue, row }) => {
-          const thumbnail = getValue() as string
-          return (
-            <div className="flex items-center justify-center p-1">
-              {thumbnail ? (
-                <img
-                  src={thumbnail}
-                  alt={row.original.title}
-                  className="w-16 h-12 object-cover rounded border"
-                  loading="lazy"
-                />
-              ) : (
-                <div className="w-16 h-12 bg-gray-200 rounded border flex items-center justify-center text-gray-400 text-xs">
-                  📄
-                </div>
-              )}
-            </div>
-          )
-        },
+        cell: (props) => (
+          <ThumbnailEditableCell {...props} />
+        ),
         size: 80,
         enableSorting: false,
         enableColumnFilter: false,
@@ -218,17 +205,12 @@ export function YouTubeTable({
       {
         accessorKey: 'channelTitle',
         header: '频道/分类',
-        cell: ({ getValue, row }) => {
-          const channelTitle = getValue() as string
-          const category = (row.original as any).category
-          const displayValue = channelTitle || category || '-'
-          
-          return (
-            <div className="p-1 truncate" title={displayValue}>
-              {displayValue}
-            </div>
-          )
-        },
+        cell: (props) => (
+          <EditableCell
+            {...props}
+            placeholder="输入频道名称或分类"
+          />
+        ),
         meta: {
           filterVariant: 'select',
         },
@@ -238,30 +220,34 @@ export function YouTubeTable({
       {
         accessorKey: 'publishedAt',
         header: '发布时间',
-        cell: ({ getValue }) => {
-          const date = new Date(getValue() as string)
-          return (
-            <div className="p-1 text-sm">
-              {date.toLocaleDateString('zh-CN')}
-            </div>
-          )
-        },
+        cell: (props) => (
+          <EditableCell
+            {...props}
+            placeholder="输入发布时间"
+            validator={(value) => {
+              if (!value) return true
+              const date = new Date(value)
+              return !isNaN(date.getTime()) || '请输入有效的日期格式'
+            }}
+          />
+        ),
         size: 120,
       },
       // 原始数据列（对CSV数据显示）
       {
         accessorKey: 'originalData',
         header: '原始数据',
-        cell: ({ getValue, row }) => {
-          const originalData = getValue() as string
+        cell: (props) => {
           // 如果有videoUrl说明是YouTube数据，不显示原始数据列
-          if (row.original.videoUrl) {
+          if (props.row.original.videoUrl) {
             return <div className="p-1 text-center text-gray-400">-</div>
           }
           return (
-            <div className="p-1 truncate max-w-xs" title={originalData}>
-              {originalData || '-'}
-            </div>
+            <EditableCell
+              {...props}
+              placeholder="输入原始数据"
+              isLongText={true}
+            />
           )
         },
         meta: {
@@ -315,14 +301,18 @@ export function YouTubeTable({
       {
         accessorKey: 'duration',
         header: '时长',
-        cell: ({ getValue }) => {
-          const duration = getValue() as string
-          return (
-            <div className="p-1 text-center text-sm font-mono">
-              {duration || '-'}
-            </div>
-          )
-        },
+        cell: (props) => (
+          <EditableCell
+            {...props}
+            placeholder="输入时长 (如: 10:30)"
+            validator={(value) => {
+              if (!value) return true
+              // 验证时长格式 (如: 1:30, 10:45, 1:05:30)
+              const pattern = /^(\d{1,2}:)?[0-5]?\d:[0-5]\d$|^\d{1,2}:[0-5]\d$/
+              return pattern.test(value) || '请输入有效的时长格式 (如: 10:30)'
+            }}
+          />
+        ),
         size: 80,
       },
       // 描述列（可编辑长文本）
@@ -485,6 +475,9 @@ export function YouTubeTable({
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
     onColumnVisibilityChange: setColumnVisibility,
+    onColumnSizingChange: setColumnSizing,
+    enableColumnResizing: true,
+    columnResizeMode: 'onChange',
     filterFns: {
       fuzzy: (row: any, columnId: string, value: any, addMeta: any) => {
         // 改进的模糊匹配实现
@@ -512,6 +505,7 @@ export function YouTubeTable({
       sorting,
       columnVisibility,
       rowSelection,
+      columnSizing,
     },
   })
 
@@ -561,7 +555,7 @@ export function YouTubeTable({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
+                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative"
                     style={{ width: header.getSize() }}
                   >
                     {header.isPlaceholder ? null : (
@@ -587,6 +581,16 @@ export function YouTubeTable({
                           <Filter column={header.column} table={table} />
                         ) : null}
                       </div>
+                    )}
+                    {/* 列宽调节手柄 */}
+                    {header.column.getCanResize() && (
+                      <div
+                        onMouseDown={header.getResizeHandler()}
+                        onTouchStart={header.getResizeHandler()}
+                        className={`absolute top-0 right-0 h-full w-1 bg-gray-300 cursor-col-resize opacity-0 hover:opacity-100 ${
+                          header.column.getIsResizing() ? 'opacity-100 bg-blue-500' : ''
+                        }`}
+                      />
                     )}
                   </th>
                 ))}
