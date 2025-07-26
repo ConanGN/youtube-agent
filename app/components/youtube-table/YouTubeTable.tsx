@@ -21,10 +21,13 @@ import {
   RowSelectionState,
   ColumnSizingState,
 } from '@tanstack/react-table'
+import { Zap, AlertCircle, CheckCircle, RefreshCw, X } from 'lucide-react'
 import { YouTubeVideo, EditHistory, UnifiedDataItem } from '@/types'
 import { EditableCell, NumberEditableCell } from './EditableCell'
 import { ThumbnailEditableCell } from './ThumbnailEditableCell'
 import { Filter, GlobalFilter, ColumnVisibility, AdvancedFilterPanel } from './FilterComponents'
+import AIPromptDrawer, { type AIBatchConfig } from '@/app/components/ai/AIPromptDrawer'
+import { useAIBatch, BatchStatus } from '@/app/hooks/useAIBatch'
 
 // 复选框组件
 interface IndeterminateCheckboxProps {
@@ -98,6 +101,7 @@ export function YouTubeTable({
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({
     // 默认显示基本列
     select: true,
+    index: true, // 默认显示序号列
     thumbnail: true,
     title: true,
     'channelTitle': true,
@@ -114,6 +118,25 @@ export function YouTubeTable({
     translatedTitle: false,
   })
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
+  
+  // AI批处理状态
+  const [showAIDrawer, setShowAIDrawer] = useState(false)
+  const [selectedColumnForAI, setSelectedColumnForAI] = useState<{
+    id: string;
+    name: string;
+  } | null>(null)
+  const [aiColumns, setAiColumns] = useState<Set<string>>(new Set())
+  
+  // AI批处理Hook
+  const {
+    batchState,
+    startBatch,
+    retryFailedItems,
+    cancelBatch,
+    clearResults,
+    getNewColumnKey,
+    getFailedItemsData,
+  } = useAIBatch()
 
   // 防止自动重置页码
   const [autoResetPageIndex, skipAutoResetPageIndex] = useSkipper()
@@ -129,6 +152,13 @@ export function YouTubeTable({
       
       setColumnVisibility(prev => ({
         ...prev,
+        // 始终显示的基本列
+        select: true,
+        index: true, // 序号列始终显示
+        thumbnail: true,
+        title: true,
+        channelTitle: true,
+        publishedAt: true,
         // YouTube特有列
         viewCount: hasYouTubeData,
         likeCount: hasYouTubeData,
@@ -175,6 +205,20 @@ export function YouTubeTable({
         size: 50,
         enableResizing: false,
       },
+      // 序号列
+      {
+        id: 'index',
+        header: '序号',
+        cell: ({ row }) => (
+          <div className="text-center text-gray-600 font-medium">
+            {row.index + 1}
+          </div>
+        ),
+        size: 50,
+        enableResizing: false,
+        enableSorting: false,
+        enableColumnFilter: false,
+      },
       // 缩略图列
       {
         accessorKey: 'thumbnail',
@@ -214,7 +258,7 @@ export function YouTubeTable({
           />
         ),
         meta: {
-          filterVariant: 'select',
+          filterVariant: 'select' as const,
         },
         size: 120,
         minSize: 80, // 减少最小宽度，配合响应式筛选器
@@ -254,7 +298,7 @@ export function YouTubeTable({
           )
         },
         meta: {
-          filterVariant: 'text',
+          filterVariant: 'text' as const,
         },
         size: 120,
         minSize: 100, // 减少最小宽度，配合响应式筛选器
@@ -276,7 +320,7 @@ export function YouTubeTable({
           )
         },
         meta: {
-          filterVariant: 'range',
+          filterVariant: 'range' as const,
         },
         size: 100,
         minSize: 80, // 减少最小宽度，配合响应式筛选器
@@ -298,7 +342,7 @@ export function YouTubeTable({
           )
         },
         meta: {
-          filterVariant: 'range',
+          filterVariant: 'range' as const,
         },
         size: 100,
         minSize: 80, // 减少最小宽度，配合响应式筛选器
@@ -337,37 +381,77 @@ export function YouTubeTable({
         },
         minSize: 120, // 减少最小宽度，配合响应式筛选器
       },
-      // AI优化标题列（可编辑）
-      {
-        accessorKey: 'enhancedTitle',
-        header: 'AI优化标题',
-        cell: (props) => (
-          <EditableCell
-            {...props}
-            placeholder="AI生成的标题将显示在这里"
-          />
-        ),
-        meta: {
-          filterVariant: 'text',
+      // 动态AI列 - 根据aiColumns状态生成
+      ...[...aiColumns].map((columnKey) => ({
+        accessorKey: columnKey,
+        header: () => {
+          const baseColumn = columnKey.split('_ai_')[0]
+          const baseColumnName = baseColumn
+          return (
+            <div className="flex items-center justify-between group">
+              <span className="flex items-center">
+                <Zap className="w-3 h-3 mr-1 text-purple-500" />
+                AI-{baseColumnName}
+              </span>
+              <button
+                onClick={() => {
+                  setAiColumns(prev => {
+                    const newSet = new Set(prev)
+                    newSet.delete(columnKey)
+                    return newSet
+                  })
+                  // 同时隐藏列
+                  setColumnVisibility(prev => ({
+                    ...prev,
+                    [columnKey]: false,
+                  }))
+                }}
+                className="ml-1 p-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                title="删除AI列"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+          )
         },
-        minSize: 120, // 减少最小宽度，配合响应式筛选器
-      },
-      // AI摘要列（可编辑）
-      {
-        accessorKey: 'summarizedDescription',
-        header: 'AI摘要',
-        cell: (props) => (
-          <EditableCell
-            {...props}
-            isLongText={true}
-            placeholder="AI生成的摘要将显示在这里"
-          />
-        ),
-        meta: {
-          filterVariant: 'text',
+        cell: (props: any) => {
+          const result = batchState.results.get(props.row.original.id)
+          const hasError = result?.status === 'failed'
+          const isProcessing = batchState.status === BatchStatus.RUNNING && !result
+          
+          return (
+            <div className="relative">
+              <EditableCell
+                {...props}
+                placeholder={isProcessing ? "AI处理中..." : "AI生成内容将显示在这里"}
+                className={hasError ? 'border-red-200 bg-red-50' : ''}
+              />
+              {isProcessing && (
+                <div className="absolute top-1 right-1">
+                  <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
+                </div>
+              )}
+              {hasError && (
+                <div 
+                  className="absolute top-1 right-1 text-red-500 cursor-help" 
+                  title={result?.error || '处理失败'}
+                >
+                  <AlertCircle className="w-3 h-3" />
+                </div>
+              )}
+              {result?.status === 'ok' && (
+                <div className="absolute top-1 right-1 text-green-500">
+                  <CheckCircle className="w-3 h-3" />
+                </div>
+              )}
+            </div>
+          )
         },
-        minSize: 120, // 减少最小宽度，配合响应式筛选器
-      },
+        meta: {
+          filterVariant: 'text' as const,
+        },
+        minSize: 120,
+      })),
       // 操作列
       {
         id: 'actions',
@@ -521,6 +605,68 @@ export function YouTubeTable({
     },
   })
 
+  // 处理AI批处理结果
+  React.useEffect(() => {
+    if (batchState.status === BatchStatus.COMPLETED || batchState.status === BatchStatus.RUNNING) {
+      // 将AI结果应用到表格数据中
+      const updatedData = tableData.map(row => {
+        const result = batchState.results.get(row.id)
+        if (result && result.status === 'ok') {
+          // 找到对应的AI列键
+          const aiColumnKey = Array.from(aiColumns).find(key => 
+            batchState.jobId && key.includes(batchState.jobId.split('_').pop() || '')
+          )
+          if (aiColumnKey) {
+            return {
+              ...row,
+              [aiColumnKey]: result.output,
+              isEdited: true,
+            }
+          }
+        }
+        return row
+      })
+      
+      if (JSON.stringify(updatedData) !== JSON.stringify(tableData)) {
+        setTableData(updatedData)
+      }
+    }
+  }, [batchState, tableData, aiColumns])
+  
+  // 处理AI批处理配置提交
+  const handleAIBatchSubmit = React.useCallback(async (config: AIBatchConfig) => {
+    if (!selectedColumnForAI) return
+    
+    // 获取列数据
+    const columnData = tableData.map(row => ({
+      rowId: row.id,
+      content: String(row[selectedColumnForAI.id as keyof UnifiedDataItem] || '')
+    })).filter(item => item.content.trim().length > 0)
+    
+    if (columnData.length === 0) {
+      alert('选择的列没有可处理的数据')
+      return
+    }
+    
+    // 生成新的AI列键
+    const newColumnKey = getNewColumnKey(selectedColumnForAI.id, config.promptTemplate)
+    
+    // 添加到AI列集合
+    setAiColumns(prev => new Set([...prev, newColumnKey]))
+    
+    // 显示新列
+    setColumnVisibility(prev => ({
+      ...prev,
+      [newColumnKey]: true,
+    }))
+    
+    // 关闭抽屉
+    setShowAIDrawer(false)
+    
+    // 开始批处理
+    await startBatch(selectedColumnForAI.id, columnData, config)
+  }, [selectedColumnForAI, tableData, getNewColumnKey, startBatch])
+  
   // 同步数据变化到父组件
   React.useEffect(() => {
     onDataChange?.(tableData)
@@ -550,6 +696,36 @@ export function YouTubeTable({
         </div>
         
         <div className="flex items-center space-x-2">
+          {/* AI批处理状态显示 */}
+          {batchState.status !== BatchStatus.IDLE && (
+            <div className="flex items-center space-x-2 px-3 py-2 bg-blue-50 rounded-lg">
+              {batchState.status === BatchStatus.RUNNING && (
+                <RefreshCw className="w-4 h-4 animate-spin text-blue-500" />
+              )}
+              <span className="text-sm text-blue-700">
+                {batchState.status === BatchStatus.RUNNING && batchState.progress && (
+                  `处理中: ${batchState.progress.completed}/${batchState.progress.total}`
+                )}
+                {batchState.status === BatchStatus.COMPLETED && '处理完成'}
+                {batchState.status === BatchStatus.FAILED && '处理失败'}
+              </span>
+              {batchState.failedItems.length > 0 && (
+                <button
+                  onClick={retryFailedItems}
+                  className="text-xs px-2 py-1 bg-orange-100 text-orange-700 rounded hover:bg-orange-200"
+                >
+                  重试失败项 ({batchState.failedItems.length})
+                </button>
+              )}
+              <button
+                onClick={clearResults}
+                className="text-xs px-2 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+              >
+                清除
+              </button>
+            </div>
+          )}
+          
           <button
             onClick={() => setShowAdvancedFilter(true)}
             className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
@@ -578,7 +754,7 @@ export function YouTubeTable({
                 {headerGroup.headers.map((header) => (
                   <th
                     key={header.id}
-                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200 last:border-r-0"
+                    className="px-2 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider relative border-r border-gray-200 last:border-r-0 group"
                     style={{ 
                       width: header.getSize(),
                       position: 'relative',
@@ -586,22 +762,47 @@ export function YouTubeTable({
                   >
                     {header.isPlaceholder ? null : (
                       <div className="space-y-1">
-                        <div
-                          className={`flex items-center space-x-1 ${
-                            header.column.getCanSort()
-                              ? 'cursor-pointer select-none hover:text-gray-700'
-                              : ''
-                          }`}
-                          onClick={header.column.getToggleSortingHandler()}
-                        >
-                          {flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
+                        <div className="flex items-center justify-between">
+                          <div
+                            className={`flex items-center space-x-1 ${
+                              header.column.getCanSort()
+                                ? 'cursor-pointer select-none hover:text-gray-700'
+                                : ''
+                            }`}
+                            onClick={header.column.getToggleSortingHandler()}
+                          >
+                            {flexRender(
+                              header.column.columnDef.header,
+                              header.getContext()
+                            )}
+                            {{
+                              asc: ' 🔼',
+                              desc: ' 🔽',
+                            }[header.column.getIsSorted() as string] ?? null}
+                          </div>
+                          
+                          {/* AI批处理按钮 */}
+                          {header.column.id !== 'select' && 
+                           header.column.id !== 'index' && 
+                           header.column.id !== 'actions' && 
+                           !header.column.id.includes('_ai_') && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setSelectedColumnForAI({
+                                  id: header.column.id,
+                                  name: typeof header.column.columnDef.header === 'string' 
+                                    ? header.column.columnDef.header
+                                    : header.column.id
+                                })
+                                setShowAIDrawer(true)
+                              }}
+                              className="p-1 text-purple-400 hover:text-purple-600 hover:bg-purple-50 rounded opacity-0 group-hover:opacity-100 transition-all"
+                              title="AI批处理此列"
+                            >
+                              <Zap className="w-3 h-3" />
+                            </button>
                           )}
-                          {{
-                            asc: ' 🔼',
-                            desc: ' 🔽',
-                          }[header.column.getIsSorted() as string] ?? null}
                         </div>
                         {header.column.getCanFilter() ? (
                           <Filter column={header.column} table={table} />
@@ -739,6 +940,30 @@ export function YouTubeTable({
         table={table}
         isOpen={showAdvancedFilter}
         onClose={() => setShowAdvancedFilter(false)}
+      />
+      
+      {/* AI批处理抽屉 */}
+      <AIPromptDrawer
+        isOpen={showAIDrawer}
+        onClose={() => {
+          setShowAIDrawer(false)
+          setSelectedColumnForAI(null)
+        }}
+        onSubmit={handleAIBatchSubmit}
+        columnId={selectedColumnForAI?.id || ''}
+        columnName={selectedColumnForAI?.name || ''}
+        dataCount={tableData.filter(row => 
+          selectedColumnForAI ? 
+            String(row[selectedColumnForAI.id as keyof UnifiedDataItem] || '').trim().length > 0 
+            : false
+        ).length}
+        sampleData={selectedColumnForAI ? 
+          tableData
+            .map(row => String(row[selectedColumnForAI.id as keyof UnifiedDataItem] || ''))
+            .filter(content => content.trim().length > 0)
+            .slice(0, 3)
+          : []
+        }
       />
     </div>
   )
