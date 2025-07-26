@@ -29,6 +29,15 @@ export function CellEditDialog({
   const [value, setValue] = useState(initialValue)
   const [error, setError] = useState<string | null>(null)
   const [hasChanges, setHasChanges] = useState(false)
+  
+  // 根据内容长度动态计算textarea行数
+  const calculateRows = (text: string): number => {
+    if (!text) return 6
+    const lines = text.split('\n').length
+    const estimatedLines = Math.ceil(text.length / 80) // 假设每行80字符
+    const calculatedRows = Math.max(lines, estimatedLines)
+    return Math.min(Math.max(calculatedRows, 6), 20) // 最少6行，最多20行
+  }
 
   // 同步外部值变化
   useEffect(() => {
@@ -96,7 +105,7 @@ export function CellEditDialog({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto">
-      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+      <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-4 text-center sm:block sm:p-4">
         {/* 背景遮罩 */}
         <div 
           className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75" 
@@ -104,9 +113,9 @@ export function CellEditDialog({
         />
         
         {/* 弹窗内容 */}
-        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+        <div className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-4 sm:align-middle sm:max-w-4xl sm:w-full max-h-[90vh] flex flex-col">
           {/* 头部 */}
-          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+          <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 flex-shrink-0">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium text-gray-900">
                 编辑 {title}
@@ -120,18 +129,19 @@ export function CellEditDialog({
             </div>
             
             {/* 编辑区域 */}
-            <div className="space-y-4">
+            <div className="space-y-4 flex-1 min-h-0 overflow-y-auto">
               {isLongText ? (
                 <textarea
                   value={value}
                   onChange={handleChange}
                   onKeyDown={handleKeyDown}
                   placeholder={placeholder}
-                  rows={10}
+                  rows={calculateRows(value)}
                   className={`w-full p-3 border border-gray-300 rounded-md resize-vertical focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
                     error ? 'border-red-500 bg-red-50' : ''
                   }`}
                   autoFocus
+                  style={{ minHeight: '150px' }}
                 />
               ) : (
                 <input
@@ -167,7 +177,7 @@ export function CellEditDialog({
           </div>
           
           {/* 底部按钮 */}
-          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse flex-shrink-0">
             <button
               onClick={handleSave}
               disabled={!!error}

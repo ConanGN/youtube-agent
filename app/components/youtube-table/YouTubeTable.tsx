@@ -468,6 +468,7 @@ export function YouTubeTable({
                     isAccepted ? 'bg-green-50 border-green-200' : ''
                   } ${isDraftColumn && !isAccepted ? 'bg-yellow-50 border-yellow-200' : ''}`}
                   value={result?.output || ''}
+                  isLongText={true}
                 />
                 
                 {/* 处理中状态 */}
