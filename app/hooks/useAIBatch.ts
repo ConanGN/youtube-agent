@@ -161,7 +161,7 @@ export function useAIBatch(): UseAIBatchReturn {
             break;
             
           case 'progress':
-            // 更新单个结果
+            // 更新单个结果 - 修复：创建新的Map对象而不是直接修改
             if (sseEvent.data.rowId) {
               const result: BatchItemResult = {
                 rowId: sseEvent.data.rowId,
@@ -170,12 +170,14 @@ export function useAIBatch(): UseAIBatchReturn {
                 error: sseEvent.data.error,
               };
               
+              // 创建新的Map对象，确保不可变性
+              newState.results = new Map(prev.results);
               newState.results.set(sseEvent.data.rowId, result);
               
               // 更新失败项目列表
               if (result.status === 'failed') {
                 if (!newState.failedItems.includes(result.rowId)) {
-                  newState.failedItems.push(result.rowId);
+                  newState.failedItems = [...newState.failedItems, result.rowId];
                 }
               } else {
                 // 成功时从失败列表中移除
@@ -209,6 +211,8 @@ export function useAIBatch(): UseAIBatchReturn {
                 acceptedRows: new Set(),
               };
               
+              // 创建新的Map对象，确保不可变性
+              newState.virtualDrafts = new Map(prev.virtualDrafts);
               newState.virtualDrafts.set(columnKey, draft);
               newState.currentDraftKey = columnKey;
               

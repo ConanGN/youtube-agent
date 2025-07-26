@@ -160,21 +160,21 @@ export function YouTubeTable({
   // 防止自动重置页码
   const [autoResetPageIndex, skipAutoResetPageIndex] = useSkipper()
 
-  // 字幕相关工具函数
-  const formatSubtitles = (cues: any[]): string => {
+  // 字幕相关工具函数 - 使用useCallback稳定函数引用
+  const formatTime = React.useCallback((seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }, [])
+
+  const formatSubtitles = React.useCallback((cues: any[]): string => {
     if (!cues || cues.length === 0) return ''
     return cues.map((cue, index) => {
       const startTime = formatTime(cue.start)
       const endTime = formatTime(cue.start + cue.dur)
       return `${index + 1}. [${startTime} - ${endTime}] ${cue.text}`
     }).join('\n')
-  }
-
-  const formatTime = (seconds: number): string => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-  }
+  }, [formatTime])
 
   // 字幕编辑相关函数
   const handleOpenSubtitleEdit = (videoId: string, subtitles: any) => {
@@ -216,10 +216,20 @@ export function YouTubeTable({
     handleCloseSubtitleEdit()
   }
 
-  const hasSelectedVideos = Object.keys(rowSelection).length > 0
+  // 使用useMemo稳定计算结果，避免每次渲染都重新计算
+  const hasSelectedVideos = React.useMemo(() => 
+    Object.keys(rowSelection).length > 0, 
+    [rowSelection]
+  )
 
-  // 字幕批量抓取处理函数
-  const handleBatchSubtitleFetch = async () => {
+  // 为虚拟列草稿创建稳定的版本标识，避免Map对象引起的重渲染
+  const virtualDraftsVersion = React.useMemo(() => 
+    Array.from(batchState.virtualDrafts.keys()).sort().join(','), 
+    [batchState.virtualDrafts]
+  )
+
+  // 字幕批量抓取处理函数 - 使用useCallback稳定函数引用
+  const handleBatchSubtitleFetch = React.useCallback(async () => {
     const selectedIds = Object.keys(rowSelection).filter(key => rowSelection[key])
     const selectedVideos = tableData.filter(item => selectedIds.includes(item.id))
     
@@ -308,7 +318,7 @@ export function YouTubeTable({
     } finally {
       setSubtitleFetching(false)
     }
-  }
+  }, [rowSelection, tableData, onDataChange])
 
   // 同步外部数据变化
   React.useEffect(() => {
@@ -829,7 +839,7 @@ export function YouTubeTable({
         enableResizing: true,
       },
     ],
-    [aiColumns, getVirtualColumnData, acceptAllRows, rejectVirtualColumn, commitVirtualColumn, batchState.virtualDrafts, hasSelectedVideos, subtitleFetching, handleBatchSubtitleFetch, formatSubtitles]
+    [aiColumns, hasSelectedVideos, subtitleFetching, virtualDraftsVersion]
   )
 
   // 数据更新函数
@@ -962,7 +972,7 @@ export function YouTubeTable({
     }
   }, [batchState, tableData, aiColumns])
   
-  // 计算处理范围和数据统计
+  // 计算处理范围和数据统计 - 使用useCallback稳定函数引用
   const getProcessingInfo = React.useCallback(() => {
     const selectedRows = Object.keys(rowSelection).filter(key => rowSelection[key])
     const filteredRows = table.getFilteredRowModel().rows
