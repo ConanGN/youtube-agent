@@ -55,7 +55,7 @@ describe('AI Limits 模块测试', () => {
   describe('estimateTokenCost', () => {
     const testContents = ['这是测试内容1', '这是测试内容2', 'This is test content 3'];
     const testTemplate = '请处理以下内容：{{content}}';
-    const testModel = 'anthropic:claude-3-5-sonnet-20240620';
+    const testModel = 'qwen/qwen3-coder:free';
 
     it('应该计算基本费用估算', () => {
       const estimate = estimateTokenCost(testContents, testModel, testTemplate);
@@ -84,11 +84,11 @@ describe('AI Limits 模块测试', () => {
     });
 
     it('应该为不同模型返回不同费用', () => {
-      const sonnetEstimate = estimateTokenCost(testContents, 'anthropic:claude-3-5-sonnet-20240620', testTemplate);
-      const haikuEstimate = estimateTokenCost(testContents, 'anthropic:claude-3-haiku-20240307', testTemplate);
+      const freeEstimate = estimateTokenCost(testContents, 'qwen/qwen3-coder:free', testTemplate);
+      const sonnetEstimate = estimateTokenCost(testContents, 'anthropic/claude-3-sonnet', testTemplate);
       
-      // Haiku应该比Sonnet便宜
-      expect(haikuEstimate.totalCost).toBeLessThan(sonnetEstimate.totalCost);
+      // 免费模型应该比付费模型便宜
+      expect(freeEstimate.totalCost).toBeLessThan(sonnetEstimate.totalCost);
     });
 
     it('应该对不支持的模型抛出错误', () => {
@@ -110,7 +110,7 @@ describe('AI Limits 模块测试', () => {
   describe('validateBatchLimits', () => {
     const testContents = ['测试内容1', '测试内容2'];
     const testTemplate = '处理：{{content}}';
-    const testModel = 'anthropic:claude-3-haiku-20240307'; // 使用便宜的模型进行测试
+    const testModel = 'qwen/qwen3-coder:free'; // 使用免费模型进行测试
 
     it('应该验证正常的批处理请求', () => {
       const result = validateBatchLimits(testContents, testModel, testTemplate);
@@ -161,9 +161,11 @@ describe('AI Limits 模块测试', () => {
 
   describe('getModelDisplayName', () => {
     it('应该返回已知模型的友好名称', () => {
+      expect(getModelDisplayName('qwen/qwen3-coder:free')).toBe('Qwen3 Coder (免费)');
+      expect(getModelDisplayName('anthropic/claude-3-sonnet')).toBe('Claude 3 Sonnet');
+      expect(getModelDisplayName('openai/gpt-3.5-turbo')).toBe('GPT-3.5 Turbo');
+      // 保持对旧模型的兼容性
       expect(getModelDisplayName('anthropic:claude-3-5-sonnet-20240620')).toBe('Claude 3.5 Sonnet');
-      expect(getModelDisplayName('anthropic:claude-3-haiku-20240307')).toBe('Claude 3 Haiku');
-      expect(getModelDisplayName('anthropic:claude-3-opus-20240229')).toBe('Claude 3 Opus');
     });
 
     it('应该返回未知模型的原始名称', () => {
@@ -193,6 +195,10 @@ describe('AI Limits 模块测试', () => {
   describe('MODEL_PRICING', () => {
     it('应该包含所有支持的模型', () => {
       const expectedModels = [
+        'qwen/qwen3-coder:free',
+        'anthropic/claude-3-sonnet',
+        'openai/gpt-3.5-turbo',
+        // 保持对旧模型的兼容性
         'anthropic:claude-3-5-sonnet-20240620',
         'anthropic:claude-3-haiku-20240307',
         'anthropic:claude-3-opus-20240229',
@@ -207,11 +213,19 @@ describe('AI Limits 模块测试', () => {
 
     it('应该有合理的定价结构', () => {
       Object.values(MODEL_PRICING).forEach(pricing => {
-        expect(pricing.input).toBeGreaterThan(0);
-        expect(pricing.output).toBeGreaterThan(0);
-        // 输出通常比输入更贵
-        expect(pricing.output).toBeGreaterThanOrEqual(pricing.input);
+        expect(pricing.input).toBeGreaterThanOrEqual(0); // 允许免费模型
+        expect(pricing.output).toBeGreaterThanOrEqual(0); // 允许免费模型
+        // 对于付费模型，输出通常比输入更贵
+        if (pricing.input > 0) {
+          expect(pricing.output).toBeGreaterThanOrEqual(pricing.input);
+        }
       });
+    });
+
+    it('免费模型应该是真正免费的', () => {
+      const freeModel = MODEL_PRICING['qwen/qwen3-coder:free'];
+      expect(freeModel.input).toBe(0);
+      expect(freeModel.output).toBe(0);
     });
   });
 });

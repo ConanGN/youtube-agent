@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>调试频道输入组件</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin-bottom: 20px; padding: 15px; border: 1px solid #ccc; }
+        .result { margin-top: 10px; padding: 10px; background: #f5f5f5; }
+        input { padding: 8px; width: 300px; margin-right: 10px; }
+        button { padding: 8px 15px; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>频道输入组件调试工具</h1>
+    
+    <div class="test-section">
+        <h3>1. URL验证测试</h3>
+        <input type="text" id="urlTest" placeholder="输入YouTube频道链接" />
+        <button onclick="testUrlValidation()">验证URL</button>
+        <div id="urlResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>2. 模拟按钮状态</h3>
+        <input type="text" id="inputTest" placeholder="输入链接测试按钮状态" oninput="checkButtonState()" />
+        <button id="testButton" disabled>获取频道视频</button>
+        <div id="buttonResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>3. API测试</h3>
+        <input type="text" id="apiTest" placeholder="输入频道链接进行API测试" />
+        <button onclick="testAPI()">测试API</button>
+        <div id="apiResult" class="result"></div>
+    </div>
+
+    <script>
+        // 复制ChannelInput组件中的验证逻辑
+        function validateChannelUrl(url) {
+            const trimmedUrl = url.trim();
+            if (!trimmedUrl) return false;
+            
+            // YouTube频道URL格式检查 - 支持URL编码的字符
+            const channelPatterns = [
+                /^https?:\/\/(www\.)?youtube\.com\/channel\/UC[\w-]{22}$/,  // 修正频道ID格式：UC开头+22字符
+                /^https?:\/\/(www\.)?youtube\.com\/c\/[\w\-%]+$/,  // 支持URL编码的%字符
+                /^https?:\/\/(www\.)?youtube\.com\/user\/[\w\-%]+$/,  // 支持URL编码的%字符
+                /^https?:\/\/(www\.)?youtube\.com\/@[\w\-%]+$/,  // 支持URL编码的%字符，如中文编码
+            ];
+            
+            return channelPatterns.some(pattern => pattern.test(trimmedUrl));
+        }
+
+        function testUrlValidation() {
+            const url = document.getElementById('urlTest').value;
+            const isValid = validateChannelUrl(url);
+            const result = document.getElementById('urlResult');
+            
+            result.innerHTML = `
+                <strong>输入:</strong> ${url}<br>
+                <strong>验证结果:</strong> <span class="${isValid ? 'success' : 'error'}">${isValid ? '有效' : '无效'}</span><br>
+                <strong>trim后:</strong> "${url.trim()}"<br>
+                <strong>长度:</strong> ${url.trim().length}
+            `;
+        }
+
+        function checkButtonState() {
+            const input = document.getElementById('inputTest');
+            const button = document.getElementById('testButton');
+            const result = document.getElementById('buttonResult');
+            
+            const channelUrl = input.value;
+            const isValid = validateChannelUrl(channelUrl);
+            const shouldBeDisabled = !channelUrl.trim() || !isValid;
+            
+            button.disabled = shouldBeDisabled;
+            
+            result.innerHTML = `
+                <strong>输入值:</strong> "${channelUrl}"<br>
+                <strong>trim后:</strong> "${channelUrl.trim()}"<br>
+                <strong>URL验证:</strong> <span class="${isValid ? 'success' : 'error'}">${isValid ? '通过' : '失败'}</span><br>
+                <strong>按钮状态:</strong> <span class="${shouldBeDisabled ? 'error' : 'success'}">${shouldBeDisabled ? '禁用' : '启用'}</span>
+            `;
+        }
+
+        async function testAPI() {
+            const url = document.getElementById('apiTest').value;
+            const result = document.getElementById('apiResult');
+            
+            if (!url.trim()) {
+                result.innerHTML = '<span class="error">请输入频道链接</span>';
+                return;
+            }
+
+            try {
+                result.innerHTML = '正在测试API...';
+                
+                const response = await fetch('http://localhost:3003/api/youtube/channel', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        channelId: null,
+                        channelUrl: url,
+                        maxResults: 10,
+                        order: 'date'
+                    }),
+                });
+
+                const data = await response.json();
+                
+                result.innerHTML = `
+                    <strong>状态码:</strong> ${response.status}<br>
+                    <strong>响应:</strong> <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+            } catch (error) {
+                result.innerHTML = `<span class="error">API测试失败: ${error.message}</span>`;
+            }
+        }
+
+        // 预填一些测试用例
+        document.addEventListener('DOMContentLoaded', function() {
+            const testCases = [
+                'https://www.youtube.com/@TonyRobbins',
+                'https://www.youtube.com/@Google',
+                'https://www.youtube.com/c/TonyRobbins',
+                'https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxx',
+                'invalid-url',
+                ''
+            ];
+            
+            console.log('测试用例验证结果:');
+            testCases.forEach(url => {
+                const isValid = validateChannelUrl(url);
+                console.log(`"${url}" -> ${isValid ? '✓' : '✗'}`);
+            });
+        });
+    </script>
+</body>
+</html>

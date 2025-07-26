@@ -285,3 +285,49 @@
     - 重试机制：每个失败项最多重试2次
   - **单元测试**：为核心模块编写完整的vitest测试覆盖
   - **依赖包**：添加@anthropic-ai/sdk、p-limit、mustache、crypto-js等依赖
+
+## 2025-07-26
+- **统一AI API服务架构重构**：
+  - **问题背景**：系统存在SDK混用问题，批处理使用Anthropic SDK（lib/ai/generate.ts），增强面板使用OpenAI SDK（/api/ai/enhance），导致体验不一致
+  - **解决方案**：统一使用OpenRouter API服务，支持多种AI模型的统一接口
+  - **技术实现**：
+    - **创建统一配置**：
+      - 新建 `lib/ai/config.ts` 统一AI配置文件
+      - 支持OpenRouter多模型切换：qwen/qwen3-coder:free（免费）、Claude、GPT等
+      - 配置默认参数：baseURL、maxTokens、temperature等
+      - 提供模型验证和显示名称映射功能
+    - **重构批处理模块**（lib/ai/generate.ts）：
+      - 移除Anthropic SDK依赖，改用原生fetch调用OpenRouter API
+      - 更新AI生成接口，支持OpenRouter API格式
+      - 保持原有接口兼容性，确保现有功能正常工作
+      - 统一错误处理和响应格式
+    - **重构增强面板API**（app/api/ai/enhance/route.ts）：
+      - 移除AI SDK + OpenAI依赖，改用OpenRouter API
+      - 创建callOpenRouterAPI函数统一处理API调用
+      - 保持所有增强功能（标题优化、描述摘要、翻译、关键词提取）正常工作
+      - 统一请求头设置，包含必要的Referer和Title信息
+    - **环境变量配置更新**：
+      - 更新 `.env.example` 将ANTHROPIC_API_KEY改为OPENROUTER_API_KEY
+      - 配置用户提供的OpenRouter API密钥：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
+      - 设置默认模型为qwen/qwen3-coder:free（免费版本）
+      - 保留旧密钥配置为注释，便于后续切换
+  - **架构优势**：
+    - **统一性**：所有AI功能使用同一套API和配置
+    - **灵活性**：支持多种AI模型，便于后续切换和扩展
+    - **成本控制**：使用免费模型降低使用成本
+    - **易维护**：统一的错误处理和日志记录
+    - **向前兼容**：保持现有功能接口不变
+  - **预留扩展**：
+    - 配置支持后续切换其他OpenRouter模型
+    - 预留了多种主流模型的映射关系
+    - 支持动态模型选择和配置热更新
+- **修复前端模型选择器**：
+  - **问题**：AI批量处理页面仍显示旧的Claude模型选项，未使用新的OpenRouter配置
+  - **修复方案**：
+    - 更新 `AIPromptDrawer.tsx` 组件，从硬编码模型列表改为动态读取OpenRouter配置
+    - 修改 `AVAILABLE_MODELS` 从 `OPENROUTER_MODELS` 动态生成
+    - 更新 `lib/ai/limits.ts` 添加OpenRouter模型定价支持
+    - 添加免费模型 `qwen/qwen3-coder:free` 的零费用定价
+    - 保持对旧模型的向后兼容性
+    - 更新测试文件支持新模型和免费定价模式
+  - **解决效果**：前端现在正确显示OpenRouter支持的模型列表，包括免费的Qwen3 Coder模型

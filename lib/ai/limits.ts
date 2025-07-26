@@ -1,5 +1,28 @@
 // 模型定价配置（每1000个token的价格，单位：USD）
 export const MODEL_PRICING = {
+  // OpenRouter模型定价
+  'qwen/qwen3-coder:free': {
+    input: 0,      // 免费模型
+    output: 0,     // 免费模型
+  },
+  'anthropic/claude-3-haiku': {
+    input: 0.00025, // $0.25/MTok
+    output: 0.00125,// $1.25/MTok
+  },
+  'anthropic/claude-3-sonnet': {
+    input: 0.003,   // $3/MTok
+    output: 0.015,  // $15/MTok
+  },
+  'openai/gpt-3.5-turbo': {
+    input: 0.0005,  // $0.5/MTok
+    output: 0.0015, // $1.5/MTok
+  },
+  'openai/gpt-4': {
+    input: 0.03,    // $30/MTok
+    output: 0.06,   // $60/MTok
+  },
+  
+  // 保留旧配置以兼容现有代码
   'anthropic:claude-3-5-sonnet-20240620': {
     input: 0.003,   // $3/MTok
     output: 0.015,  // $15/MTok
@@ -198,6 +221,14 @@ export function validateBatchLimits(
  */
 export function getModelDisplayName(model: string): string {
   const displayNames: Record<string, string> = {
+    // OpenRouter模型
+    'qwen/qwen3-coder:free': 'Qwen3 Coder (免费)',
+    'anthropic/claude-3-haiku': 'Claude 3 Haiku',
+    'anthropic/claude-3-sonnet': 'Claude 3 Sonnet',
+    'openai/gpt-3.5-turbo': 'GPT-3.5 Turbo',
+    'openai/gpt-4': 'GPT-4',
+    
+    // 保留旧配置
     'anthropic:claude-3-5-sonnet-20240620': 'Claude 3.5 Sonnet',
     'anthropic:claude-3-haiku-20240307': 'Claude 3 Haiku',
     'anthropic:claude-3-opus-20240229': 'Claude 3 Opus',

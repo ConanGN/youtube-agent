@@ -1,10 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { openai } from '@ai-sdk/openai'
-import { generateText } from 'ai'
+import { getAIConfig } from '@/lib/ai/config'
 import { YouTubeVideo, EnhancementType } from '@/types'
 
 // AI增强功能API
 // 支持标题优化、描述摘要、内容翻译等功能
+
+// OpenRouter API调用函数
+async function callOpenRouterAPI(
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number = 150
+): Promise<{ text: string; usage?: { totalTokens: number } }> {
+  const config = getAIConfig();
+  
+  const response = await fetch(config.baseURL + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      'X-Title': 'YouTube Agent Enhancement',
+    },
+    body: JSON.stringify({
+      model: config.model,
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user',
+          content: userPrompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text();
+    throw new Error(`OpenRouter API错误 (${response.status}): ${errorData}`);
+  }
+
+  const data = await response.json();
+  const message = data.choices?.[0]?.message;
+  
+  if (!message?.content) {
+    throw new Error('AI返回了空内容');
+  }
+
+  return {
+    text: message.content,
+    usage: {
+      totalTokens: data.usage?.total_tokens || 0,
+    },
+  };
+}
 
 interface EnhanceRequest {
   videos: YouTubeVideo[]
@@ -169,14 +221,12 @@ export async function POST(request: NextRequest) {
             .replace('{channelTitle}', video.channelTitle)
         }
 
-        // 调用AI生成内容
-        const result = await generateText({
-          model: openai('gpt-3.5-turbo'),
-          system: template.system,
-          prompt: userPrompt,
-          maxTokens: options.maxLength || 150,
-          temperature: 0.7,
-        })
+        // 调用OpenRouter API生成内容
+        const result = await callOpenRouterAPI(
+          template.system,
+          userPrompt,
+          options.maxLength || 150
+        )
 
         enhancedContent = result.text.trim()
         totalTokensUsed += result.usage?.totalTokens || 0

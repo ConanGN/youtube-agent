@@ -14,6 +14,7 @@ import {
   getModelDisplayName,
   MODEL_PRICING 
 } from '@/lib/ai/limits';
+import { OPENROUTER_MODELS } from '@/lib/ai/config';
 
 // 抽屉props接口
 export interface AIPromptDrawerProps {
@@ -34,12 +35,11 @@ export interface AIBatchConfig {
   dryRun: boolean;
 }
 
-// 支持的模型列表
-const AVAILABLE_MODELS = [
-  { value: 'anthropic:claude-3-5-sonnet-20240620', label: 'Claude 3.5 Sonnet (推荐)' },
-  { value: 'anthropic:claude-3-haiku-20240307', label: 'Claude 3 Haiku (经济型)' },
-  { value: 'anthropic:claude-3-opus-20240229', label: 'Claude 3 Opus (高性能)' },
-];
+// 从OpenRouter配置生成可用模型列表
+const AVAILABLE_MODELS = Object.entries(OPENROUTER_MODELS).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 export default function AIPromptDrawer({
   isOpen,

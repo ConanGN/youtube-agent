@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { getAIConfig, OPENROUTER_MODELS, isSupportedModel, type SupportedModel } from './config';
 
 // AI生成接口定义
 export interface AIGenerateRequest {
@@ -17,14 +17,10 @@ export interface AIGenerateResponse {
   error?: string;
 }
 
-// 支持的AI模型列表
-export const SUPPORTED_MODELS = {
-  'anthropic:claude-3-5-sonnet-20240620': 'Claude 3.5 Sonnet',
-  'anthropic:claude-3-haiku-20240307': 'Claude 3 Haiku',
-  'anthropic:claude-3-opus-20240229': 'Claude 3 Opus',
-} as const;
+// 支持的AI模型列表 (从config导出)
+export const SUPPORTED_MODELS = OPENROUTER_MODELS;
 
-export type SupportedModel = keyof typeof SUPPORTED_MODELS;
+export type { SupportedModel };
 
 // 默认系统提示词 - 安全防护
 const DEFAULT_SYSTEM_PROMPT = `你是一个专业的数据处理助手。请严格遵循以下规则：
@@ -34,13 +30,46 @@ const DEFAULT_SYSTEM_PROMPT = `你是一个专业的数据处理助手。请严�
 4. 保持输出简洁、准确和有用
 5. 如果内容不适合处理，请返回"无法处理此内容"`;
 
-// 初始化Anthropic客户端
-function createAnthropicClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error('缺少ANTHROPIC_API_KEY环境变量');
+// OpenRouter API 调用函数
+async function callOpenRouterAPI(
+  model: string,
+  systemPrompt: string,
+  userPrompt: string,
+  maxTokens: number
+): Promise<any> {
+  const config = getAIConfig();
+  
+  const response = await fetch(config.baseURL + '/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${config.apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+      'X-Title': 'YouTube Agent AI Processing',
+    },
+    body: JSON.stringify({
+      model: model,
+      max_tokens: maxTokens,
+      temperature: config.temperature,
+      messages: [
+        {
+          role: 'system',
+          content: systemPrompt,
+        },
+        {
+          role: 'user', 
+          content: userPrompt,
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.text();
+    throw new Error(`OpenRouter API错误 (${response.status}): ${errorData}`);
   }
-  return new Anthropic({ apiKey });
+
+  return response.json();
 }
 
 // AI生成主函数
@@ -49,37 +78,29 @@ export async function generate(request: AIGenerateRequest): Promise<AIGenerateRe
     const { model, systemPrompt, userPrompt, maxTokens = 1000 } = request;
     
     // 验证模型是否支持
-    if (!model.startsWith('anthropic:')) {
+    if (!isSupportedModel(model)) {
       throw new Error(`不支持的模型: ${model}`);
     }
     
-    const anthropicModel = model.replace('anthropic:', '');
-    const client = createAnthropicClient();
-    
-    // 调用Anthropic API
-    const response = await client.messages.create({
-      model: anthropicModel,
-      max_tokens: maxTokens,
-      system: systemPrompt || DEFAULT_SYSTEM_PROMPT,
-      messages: [
-        {
-          role: 'user',
-          content: userPrompt,
-        },
-      ],
-    });
+    // 调用OpenRouter API
+    const response = await callOpenRouterAPI(
+      model,
+      systemPrompt || DEFAULT_SYSTEM_PROMPT,
+      userPrompt,
+      maxTokens
+    );
     
     // 处理响应
-    const content = response.content[0];
-    if (content.type !== 'text') {
-      throw new Error('AI返回了非文本内容');
+    const message = response.choices?.[0]?.message;
+    if (!message?.content) {
+      throw new Error('AI返回了空内容');
     }
     
     return {
-      content: content.text,
+      content: message.content,
       usage: {
-        inputTokens: response.usage.input_tokens,
-        outputTokens: response.usage.output_tokens,
+        inputTokens: response.usage?.prompt_tokens || 0,
+        outputTokens: response.usage?.completion_tokens || 0,
       },
     };
     
