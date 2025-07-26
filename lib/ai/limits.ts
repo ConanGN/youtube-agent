@@ -1,9 +1,27 @@
 // 模型定价配置（每1000个token的价格，单位：USD）
 export const MODEL_PRICING = {
-  // OpenRouter模型定价
+  // SiliconFlow模型定价
+  'deepseek-ai/DeepSeek-V3': {
+    input: 0.001,   // DeepSeek-V3 输入价格
+    output: 0.002,  // DeepSeek-V3 输出价格
+  },
+  'Qwen/Qwen2.5-Coder-32B-Instruct': {
+    input: 0.0015,  // Qwen2.5 Coder 32B
+    output: 0.002,  
+  },
+  'meta-llama/Llama-3.1-8B-Instruct': {
+    input: 0.001,   // Llama 3.1 8B
+    output: 0.0015, 
+  },
+  'THUDM/glm-4-9b-chat': {
+    input: 0.001,   // GLM-4 9B Chat
+    output: 0.0015, 
+  },
+  
+  // 已弃用的模型定价（保留兼容性）
   'qwen/qwen3-coder:free': {
-    input: 0,      // 免费模型
-    output: 0,     // 免费模型
+    input: 0,      // 免费模型（已弃用）
+    output: 0,     // 免费模型（已弃用）
   },
   'anthropic/claude-3-haiku': {
     input: 0.00025, // $0.25/MTok
@@ -221,7 +239,13 @@ export function validateBatchLimits(
  */
 export function getModelDisplayName(model: string): string {
   const displayNames: Record<string, string> = {
-    // OpenRouter模型
+    // SiliconFlow模型
+    'deepseek-ai/DeepSeek-V3': 'DeepSeek-V3 (高性能智能模型)',
+    'Qwen/Qwen2.5-Coder-32B-Instruct': 'Qwen2.5 Coder 32B',
+    'meta-llama/Llama-3.1-8B-Instruct': 'Llama 3.1 8B',
+    'THUDM/glm-4-9b-chat': 'GLM-4 9B Chat',
+    
+    // 已弃用的模型（保留兼容性）
     'qwen/qwen3-coder:free': 'Qwen3 Coder (免费)',
     'anthropic/claude-3-haiku': 'Claude 3 Haiku',
     'anthropic/claude-3-sonnet': 'Claude 3 Sonnet',

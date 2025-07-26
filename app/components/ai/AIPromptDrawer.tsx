@@ -14,7 +14,7 @@ import {
   getModelDisplayName,
   MODEL_PRICING 
 } from '@/lib/ai/limits';
-import { OPENROUTER_MODELS } from '@/lib/ai/config';
+import { SILICONFLOW_MODELS } from '@/lib/ai/config';
 
 // 抽屉props接口
 export interface AIPromptDrawerProps {
@@ -43,8 +43,8 @@ export interface AIBatchConfig {
   processingScope?: 'selected' | 'filtered' | 'all';
 }
 
-// 从OpenRouter配置生成可用模型列表
-const AVAILABLE_MODELS = Object.entries(OPENROUTER_MODELS).map(([value, label]) => ({
+// 从SiliconFlow配置生成可用模型列表
+const AVAILABLE_MODELS = Object.entries(SILICONFLOW_MODELS).map(([value, label]) => ({
   value,
   label,
 }));

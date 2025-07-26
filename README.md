@@ -2,6 +2,8 @@
 
 一个基于Next.js 14构建的现代化YouTube数据处理和AI增强平台，支持视频数据抓取、智能表格操作、AI内容优化和多格式数据导出功能。
 
+> **最新更新**: 2025-01-26 - 已切换至SiliconFlow API，使用DeepSeek-V3模型提供更优质的AI服务
+
 ## ✨ 功能特性
 
 ### 🎯 核心功能
@@ -30,9 +32,9 @@
 - **papaparse** - CSV数据处理
 
 ### AI & API
-- **Vercel AI SDK** - AI服务集成
+- **SiliconFlow API** - AI服务集成，使用DeepSeek-V3模型
 - **Google APIs** - YouTube Data API v3
-- **OpenAI/Anthropic** - AI内容生成
+- **Vercel AI SDK** - AI框架支持
 
 ## 📦 快速开始
 
@@ -63,7 +65,7 @@ cp .env.example .env.local
 编辑 `.env.local` 文件，配置必需的API密钥：
 ```env
 YOUTUBE_API_KEY=your_youtube_api_key_here
-OPENAI_API_KEY=your_openai_api_key_here
+SILICONFLOW_API_KEY=your_siliconflow_api_key_here
 ```
 
 4. **启动开发服务器**
@@ -85,8 +87,8 @@ yarn dev
 4. 创建API密钥
 5. 设置API密钥的访问限制（推荐）
 
-### OpenAI API
-1. 访问 [OpenAI Platform](https://platform.openai.com/api-keys)
+### SiliconFlow API
+1. 访问 [SiliconFlow Platform](https://docs.siliconflow.cn/)
 2. 登录或注册账户
 3. 创建新的API密钥
 4. 复制密钥到环境变量
@@ -175,8 +177,7 @@ npm run test
 | 变量名 | 必需 | 说明 |
 |--------|------|------|
 | `YOUTUBE_API_KEY` | ✅ | YouTube Data API v3密钥 |
-| `OPENAI_API_KEY` | ✅ | OpenAI API密钥 |
-| `ANTHROPIC_API_KEY` | ❌ | Anthropic API密钥（可选） |
+| `SILICONFLOW_API_KEY` | ✅ | SiliconFlow API密钥 |
 | `NODE_ENV` | ✅ | 运行环境（development/production） |
 | `NEXT_PUBLIC_APP_URL` | ✅ | 应用URL |
 
@@ -187,10 +188,11 @@ npm run test
 - **请求限制**：每100秒100个请求
 - **数据限制**：单次最多50个项目
 
-### OpenAI API
+### SiliconFlow API
+- **模型**：DeepSeek-V3 高性能智能模型
 - **Token限制**：根据选择的模型而定
 - **频率限制**：根据账户等级而定
-- **成本**：按Token使用量计费
+- **成本**：按Token使用量计费，性价比优异
 
 ## 🚀 部署指南
 
@@ -216,7 +218,7 @@ npm run test
 A: 可以申请配额增加，或者在Google Cloud Console启用计费。
 
 **Q: AI功能不工作？**
-A: 检查OpenAI API密钥是否正确配置，确保账户有足够余额。
+A: 检查SiliconFlow API密钥是否正确配置，确保账户有足够余额。
 
 **Q: 表格数据不显示？**
 A: 检查网络连接和API密钥配置，查看浏览器控制台错误信息。
@@ -259,17 +261,24 @@ A: 确保选择了要导出的数据，检查浏览器是否阻止了下载。
 
 ## 📝 更新日志
 
+### 2025-01-26
+- **🚀 AI服务升级**：从OpenRouter切换至SiliconFlow API
+  - 使用DeepSeek-V3高性能智能模型，响应更快更准确
+  - API端点：`https://api.siliconflow.cn/v1`
+  - 更优性价比的AI服务体验
+- **配置文件更新**：
+  - `lib/ai/config.ts`: 更新API配置和模型列表
+  - `lib/ai/generate.ts`: 适配新的API调用格式
+  - `app/api/ai/enhance/route.ts`: 更新增强功能API
+  - `.env.example` 和 `.env.local`: 更新环境变量配置
+- **文档更新**：更新README.md中的API说明和获取指南
+
 ### 2025-07-24
 - **修复数据混淆问题**：解决了视频链接请求时显示之前账号链接数据的问题
 - **新增数据处理模式**：添加"替换数据"和"追加数据"两种模式选择
   - 替换数据：清除旧数据，只显示当前请求的数据（默认模式）
   - 追加数据：在现有数据基础上添加新数据
 - **优化用户体验**：当有现有数据时，用户可以选择数据处理模式
-
-### 修复内容
-- `app/page.tsx`: 修改数据获取逻辑，默认替换而不是追加数据
-- `app/page.tsx`: 添加数据处理模式选择器UI组件
-- 确保每次新请求只显示对应的数据，避免数据混淆
 
 ---
 

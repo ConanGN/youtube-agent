@@ -5,8 +5,8 @@ import { YouTubeVideo, EnhancementType } from '@/types'
 // AI增强功能API
 // 支持标题优化、描述摘要、内容翻译等功能
 
-// OpenRouter API调用函数
-async function callOpenRouterAPI(
+// SiliconFlow API调用函数
+async function callSiliconFlowAPI(
   systemPrompt: string,
   userPrompt: string,
   maxTokens: number = 150
@@ -25,6 +25,7 @@ async function callOpenRouterAPI(
       model: config.model,
       max_tokens: maxTokens,
       temperature: 0.7,
+      stream: false,
       messages: [
         {
           role: 'system',
@@ -40,7 +41,7 @@ async function callOpenRouterAPI(
 
   if (!response.ok) {
     const errorData = await response.text();
-    throw new Error(`OpenRouter API错误 (${response.status}): ${errorData}`);
+    throw new Error(`SiliconFlow API错误 (${response.status}): ${errorData}`);
   }
 
   const data = await response.json();
@@ -221,8 +222,8 @@ export async function POST(request: NextRequest) {
             .replace('{channelTitle}', video.channelTitle)
         }
 
-        // 调用OpenRouter API生成内容
-        const result = await callOpenRouterAPI(
+        // 调用SiliconFlow API生成内容
+        const result = await callSiliconFlowAPI(
           template.system,
           userPrompt,
           options.maxLength || 150

@@ -200,26 +200,26 @@ export async function POST(request: NextRequest) {
                   let output = result.content;
                   let errorType: string | undefined;
                   
-                  // 尝试解析JSON（如果提示词要求JSON格式）
-                  if (promptTemplate.toLowerCase().includes('json') || 
-                      promptTemplate.includes('{') || 
-                      promptTemplate.includes('}')) {
+                  // 尝试解析JSON（仅当提示词明确要求JSON格式时）
+                  if (promptTemplate.toLowerCase().includes('json') && 
+                      (promptTemplate.toLowerCase().includes('format') || 
+                       promptTemplate.toLowerCase().includes('格式'))) {
                     try {
                       // 尝试解析为JSON以验证格式
                       JSON.parse(output);
                     } catch (jsonError) {
                       // JSON解析失败，但仍保留原内容，标记错误类型
-                      errorType = 'JSON_PARSE_ERROR';
+                      errorType = 'JSON_PARSE_WARNING';
                       console.warn(`JSON解析失败 (rowId: ${item.rowId}):`, jsonError);
                     }
                   }
                   
-                  // 成功处理（即使有JSON错误也算成功，让用户选择是否接受）
+                  // 成功处理（JSON解析警告不影响成功状态）
                   const successResult = {
                     rowId: item.rowId,
                     output,
-                    status: errorType ? 'failed' as const : 'ok' as const,
-                    error: errorType,
+                    status: 'ok' as const,
+                    warning: errorType === 'JSON_PARSE_WARNING' ? 'JSON格式警告，但内容已保留' : undefined,
                   };
                   
                   results[index] = successResult;

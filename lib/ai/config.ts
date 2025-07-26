@@ -1,4 +1,4 @@
-// OpenRouter API 统一配置
+// SiliconFlow API 统一配置
 // 支持多种AI模型的统一接口
 
 export interface AIConfig {
@@ -9,25 +9,24 @@ export interface AIConfig {
   temperature: number;
 }
 
-// OpenRouter支持的模型列表
-export const OPENROUTER_MODELS = {
-  // 免费模型
-  'qwen/qwen3-coder:free': 'Qwen3 Coder (免费)',
+// SiliconFlow支持的模型列表
+export const SILICONFLOW_MODELS = {
+  // DeepSeek模型
+  'deepseek-ai/DeepSeek-V3': 'DeepSeek-V3 (高性能智能模型)',
   
   // 其他常用模型 (预留扩展)
-  'anthropic/claude-3-haiku': 'Claude 3 Haiku',
-  'anthropic/claude-3-sonnet': 'Claude 3 Sonnet', 
-  'openai/gpt-3.5-turbo': 'GPT-3.5 Turbo',
-  'openai/gpt-4': 'GPT-4',
+  'Qwen/Qwen2.5-Coder-32B-Instruct': 'Qwen2.5 Coder 32B',
+  'meta-llama/Llama-3.1-8B-Instruct': 'Llama 3.1 8B',
+  'THUDM/glm-4-9b-chat': 'GLM-4 9B Chat',
 } as const;
 
-export type SupportedModel = keyof typeof OPENROUTER_MODELS;
+export type SupportedModel = keyof typeof SILICONFLOW_MODELS;
 
 // 默认配置
 export const DEFAULT_AI_CONFIG: AIConfig = {
-  apiKey: process.env.OPENROUTER_API_KEY || '',
-  baseURL: 'https://openrouter.ai/api/v1',
-  model: 'qwen/qwen3-coder:free',
+  apiKey: process.env.SILICONFLOW_API_KEY || '',
+  baseURL: 'https://api.siliconflow.cn/v1',
+  model: 'deepseek-ai/DeepSeek-V3',
   maxTokens: 1000,
   temperature: 0.7,
 };
@@ -38,14 +37,14 @@ export function getAIConfig(overrides?: Partial<AIConfig>): AIConfig {
   
   // 调试日志：输出环境变量状态
   console.log('Environment variables debug:', {
-    hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
-    keyLength: process.env.OPENROUTER_API_KEY?.length || 0,
+    hasSiliconFlowKey: !!process.env.SILICONFLOW_API_KEY,
+    keyLength: process.env.SILICONFLOW_API_KEY?.length || 0,
     configApiKey: config.apiKey,
     nodeEnv: process.env.NODE_ENV
   });
   
   if (!config.apiKey) {
-    throw new Error('缺少OPENROUTER_API_KEY环境变量，请检查.env.local文件配置');
+    throw new Error('缺少SILICONFLOW_API_KEY环境变量，请检查.env.local文件配置');
   }
   
   return config;
@@ -53,10 +52,10 @@ export function getAIConfig(overrides?: Partial<AIConfig>): AIConfig {
 
 // 验证模型是否受支持
 export function isSupportedModel(model: string): model is SupportedModel {
-  return model in OPENROUTER_MODELS;
+  return model in SILICONFLOW_MODELS;
 }
 
 // 获取模型显示名称
 export function getModelDisplayName(model: string): string {
-  return OPENROUTER_MODELS[model as SupportedModel] || model;
+  return SILICONFLOW_MODELS[model as SupportedModel] || model;
 }

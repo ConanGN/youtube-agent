@@ -31,13 +31,13 @@ vi.mock('@/lib/ai/limits', () => ({
   formatCost: vi.fn((cost) => `$${cost.toFixed(3)}`),
   getModelDisplayName: vi.fn((model) => model),
   MODEL_PRICING: {
-    'qwen/qwen3-coder:free': { input: 0, output: 0 }
+    'deepseek-ai/DeepSeek-V3': { input: 0.001, output: 0.001 }
   }
 }))
 
 vi.mock('@/lib/ai/config', () => ({
-  OPENROUTER_MODELS: {
-    'qwen/qwen3-coder:free': 'Qwen3 Coder (免费)'
+  SILICONFLOW_MODELS: {
+    'deepseek-ai/DeepSeek-V3': 'DeepSeek-V3 (高性能智能模型)'
   }
 }))
 
@@ -167,7 +167,7 @@ describe('AIPromptDrawer - 按钮可见性测试', () => {
       
       expect(onSubmit).toHaveBeenCalledTimes(1)
       expect(onSubmit).toHaveBeenCalledWith({
-        model: 'qwen/qwen3-coder:free',
+        model: 'deepseek-ai/DeepSeek-V3',
         promptTemplate: '请总结以下内容：{{content}}',
         maxConcurrency: 3,
         dryRun: true,

@@ -1,4 +1,4 @@
-import { getAIConfig, OPENROUTER_MODELS, isSupportedModel, type SupportedModel } from './config';
+import { getAIConfig, SILICONFLOW_MODELS, isSupportedModel, type SupportedModel } from './config';
 
 // AI生成接口定义
 export interface AIGenerateRequest {
@@ -18,7 +18,7 @@ export interface AIGenerateResponse {
 }
 
 // 支持的AI模型列表 (从config导出)
-export const SUPPORTED_MODELS = OPENROUTER_MODELS;
+export const SUPPORTED_MODELS = SILICONFLOW_MODELS;
 
 export type { SupportedModel };
 
@@ -30,8 +30,8 @@ const DEFAULT_SYSTEM_PROMPT = `你是一个专业的数据处理助手。请严�
 4. 保持输出简洁、准确和有用
 5. 如果内容不适合处理，请返回"无法处理此内容"`;
 
-// OpenRouter API 调用函数
-async function callOpenRouterAPI(
+// SiliconFlow API 调用函数
+async function callSiliconFlowAPI(
   model: string,
   systemPrompt: string,
   userPrompt: string,
@@ -51,6 +51,7 @@ async function callOpenRouterAPI(
       model: model,
       max_tokens: maxTokens,
       temperature: config.temperature,
+      stream: false,
       messages: [
         {
           role: 'system',
@@ -66,7 +67,7 @@ async function callOpenRouterAPI(
 
   if (!response.ok) {
     const errorData = await response.text();
-    throw new Error(`OpenRouter API错误 (${response.status}): ${errorData}`);
+    throw new Error(`SiliconFlow API错误 (${response.status}): ${errorData}`);
   }
 
   return response.json();
@@ -82,8 +83,8 @@ export async function generate(request: AIGenerateRequest): Promise<AIGenerateRe
       throw new Error(`不支持的模型: ${model}`);
     }
     
-    // 调用OpenRouter API
-    const response = await callOpenRouterAPI(
+    // 调用SiliconFlow API
+    const response = await callSiliconFlowAPI(
       model,
       systemPrompt || DEFAULT_SYSTEM_PROMPT,
       userPrompt,
