@@ -136,6 +136,11 @@ export function YouTubeTable({
     clearResults,
     getNewColumnKey,
     getFailedItemsData,
+    acceptSingleRow,
+    acceptAllRows,
+    rejectVirtualColumn,
+    commitVirtualColumn,
+    getVirtualColumnData,
   } = useAIBatch()
 
   // 防止自动重置页码
@@ -382,76 +387,152 @@ export function YouTubeTable({
         minSize: 120, // 减少最小宽度，配合响应式筛选器
       },
       // 动态AI列 - 根据aiColumns状态生成
-      ...[...aiColumns].map((columnKey) => ({
-        accessorKey: columnKey,
-        header: () => {
-          const baseColumn = columnKey.split('_ai_')[0]
-          const baseColumnName = baseColumn
-          return (
-            <div className="flex items-center justify-between group">
-              <span className="flex items-center">
-                <Zap className="w-3 h-3 mr-1 text-purple-500" />
-                AI-{baseColumnName}
-              </span>
-              <button
-                onClick={() => {
-                  setAiColumns(prev => {
-                    const newSet = new Set(prev)
-                    newSet.delete(columnKey)
-                    return newSet
-                  })
-                  // 同时隐藏列
-                  setColumnVisibility(prev => ({
-                    ...prev,
-                    [columnKey]: false,
-                  }))
-                }}
-                className="ml-1 p-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
-                title="删除AI列"
-              >
-                <X className="w-3 h-3" />
-              </button>
-            </div>
-          )
-        },
-        cell: (props: any) => {
-          const result = batchState.results.get(props.row.original.id)
-          const hasError = result?.status === 'failed'
-          const isProcessing = batchState.status === BatchStatus.RUNNING && !result
-          
-          return (
-            <div className="relative">
-              <EditableCell
-                {...props}
-                placeholder={isProcessing ? "AI处理中..." : "AI生成内容将显示在这里"}
-                className={hasError ? 'border-red-200 bg-red-50' : ''}
-              />
-              {isProcessing && (
-                <div className="absolute top-1 right-1">
-                  <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
+      ...[...aiColumns].map((columnKey) => {
+        const isDraftColumn = columnKey.includes('_ai_draft_')
+        const virtualDraft = isDraftColumn ? getVirtualColumnData(columnKey) : undefined
+        
+        return {
+          accessorKey: columnKey,
+          header: () => {
+            const baseColumn = columnKey.split('_ai_')[0]
+            const baseColumnName = baseColumn
+            
+            return (
+              <div className="flex flex-col space-y-1">
+                <div className="flex items-center justify-between group">
+                  <span className="flex items-center">
+                    <Zap className="w-3 h-3 mr-1 text-purple-500" />
+                    {isDraftColumn ? `AI草稿-${baseColumnName}` : `AI-${baseColumnName}`}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (isDraftColumn && virtualDraft) {
+                        rejectVirtualColumn(columnKey)
+                      }
+                      setAiColumns(prev => {
+                        const newSet = new Set(prev)
+                        newSet.delete(columnKey)
+                        return newSet
+                      })
+                      // 同时隐藏列
+                      setColumnVisibility(prev => ({
+                        ...prev,
+                        [columnKey]: false,
+                      }))
+                    }}
+                    className="ml-1 p-0.5 text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title={isDraftColumn ? "撤销草稿" : "删除AI列"}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
-              )}
-              {hasError && (
-                <div 
-                  className="absolute top-1 right-1 text-red-500 cursor-help" 
-                  title={result?.error || '处理失败'}
-                >
-                  <AlertCircle className="w-3 h-3" />
-                </div>
-              )}
-              {result?.status === 'ok' && (
-                <div className="absolute top-1 right-1 text-green-500">
-                  <CheckCircle className="w-3 h-3" />
-                </div>
-              )}
-            </div>
-          )
-        },
-        meta: {
-          filterVariant: 'text' as const,
-        },
-        minSize: 120,
-      })),
+                
+                {/* 草稿模式的批量操作按钮 */}
+                {isDraftColumn && virtualDraft && (
+                  <div className="flex space-x-1 text-xs">
+                    <button
+                      onClick={() => acceptAllRows(columnKey)}
+                      className="px-1 py-0.5 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                      title="全部接受"
+                    >
+                      ✓全部
+                    </button>
+                    <button
+                      onClick={() => commitVirtualColumn(columnKey, 'virtual')}
+                      className="px-1 py-0.5 bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                      title="提交为新列"
+                    >
+                      提交
+                    </button>
+                  </div>
+                )}
+              </div>
+            )
+          },
+          cell: (props: any) => {
+            const rowId = props.row.original.id
+            const result = isDraftColumn && virtualDraft ? 
+              virtualDraft.draftData.get(rowId) : 
+              batchState.results.get(rowId)
+            const hasError = result?.status === 'failed'
+            const isProcessing = batchState.status === BatchStatus.RUNNING && !result
+            const isAccepted = isDraftColumn && virtualDraft ? 
+              virtualDraft.acceptedRows.has(rowId) : false
+            
+            return (
+              <div className="relative">
+                <EditableCell
+                  {...props}
+                  placeholder={isProcessing ? "AI处理中..." : "AI生成内容将显示在这里"}
+                  className={`${hasError ? 'border-red-200 bg-red-50' : ''} ${
+                    isAccepted ? 'bg-green-50 border-green-200' : ''
+                  } ${isDraftColumn && !isAccepted ? 'bg-yellow-50 border-yellow-200' : ''}`}
+                  value={result?.output || ''}
+                />
+                
+                {/* 处理中状态 */}
+                {isProcessing && (
+                  <div className="absolute top-1 right-1">
+                    <RefreshCw className="w-3 h-3 animate-spin text-blue-500" />
+                  </div>
+                )}
+                
+                {/* 错误状态 */}
+                {hasError && (
+                  <div className="absolute top-1 right-6 flex items-center space-x-1">
+                    <div 
+                      className="text-red-500 cursor-help" 
+                      title={result?.error || '处理失败'}
+                    >
+                      <AlertCircle className="w-3 h-3" />
+                    </div>
+                    {result?.error?.includes('JSON_PARSE_ERROR') && (
+                      <button
+                        onClick={() => acceptSingleRow(rowId, columnKey)}
+                        className="text-xs px-1 py-0.5 bg-orange-100 text-orange-700 rounded hover:bg-orange-200"
+                        title="当作纯文本接受"
+                      >
+                        接受
+                      </button>
+                    )}
+                  </div>
+                )}
+                
+                {/* 成功状态和草稿操作 */}
+                {result?.status === 'ok' && (
+                  <div className="absolute top-1 right-1 flex items-center space-x-1">
+                    {isDraftColumn ? (
+                      <div className="flex space-x-1">
+                        {!isAccepted ? (
+                          <button
+                            onClick={() => acceptSingleRow(rowId, columnKey)}
+                            className="text-xs px-1 py-0.5 bg-green-100 text-green-700 rounded hover:bg-green-200"
+                            title="接受此行"
+                          >
+                            ✓
+                          </button>
+                        ) : (
+                          <div className="text-green-500" title="已接受">
+                            <CheckCircle className="w-3 h-3" />
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-green-500">
+                        <CheckCircle className="w-3 h-3" />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          },
+          meta: {
+            filterVariant: 'text' as const,
+          },
+          minSize: 120,
+        }
+      }),
       // 操作列
       {
         id: 'actions',
@@ -633,39 +714,90 @@ export function YouTubeTable({
     }
   }, [batchState, tableData, aiColumns])
   
+  // 计算处理范围和数据统计
+  const getProcessingInfo = React.useCallback(() => {
+    const selectedRows = Object.keys(rowSelection).filter(key => rowSelection[key])
+    const filteredRows = table.getFilteredRowModel().rows
+    const allRows = table.getCoreRowModel().rows
+    
+    // 确定处理范围
+    let processingScope: 'selected' | 'filtered' | 'all'
+    let targetRows: typeof allRows
+    let dataCount: number
+    
+    if (selectedRows.length > 0) {
+      // 有选中行时，优先处理选中行
+      processingScope = 'selected'
+      targetRows = allRows.filter(row => rowSelection[row.id])
+      dataCount = selectedRows.length
+    } else if (columnFilters.length > 0 || globalFilter) {
+      // 无选中行但有筛选条件时，处理筛选结果
+      processingScope = 'filtered'
+      targetRows = filteredRows
+      dataCount = filteredRows.length
+    } else {
+      // 无选中行无筛选条件时，处理全表
+      processingScope = 'all'
+      targetRows = allRows
+      dataCount = allRows.length
+    }
+    
+    return {
+      processingScope,
+      targetRows,
+      dataCount,
+      selectedRowCount: selectedRows.length,
+      filteredRowCount: filteredRows.length,
+      totalRowCount: allRows.length,
+    }
+  }, [rowSelection, table, columnFilters, globalFilter])
+
   // 处理AI批处理配置提交
   const handleAIBatchSubmit = React.useCallback(async (config: AIBatchConfig) => {
     if (!selectedColumnForAI) return
     
-    // 获取列数据
-    const columnData = tableData.map(row => ({
-      rowId: row.id,
-      content: String(row[selectedColumnForAI.id as keyof UnifiedDataItem] || '')
-    })).filter(item => item.content.trim().length > 0)
+    const processingInfo = getProcessingInfo()
+    
+    // 获取目标行的列数据
+    const columnData = processingInfo.targetRows
+      .map(row => ({
+        rowId: row.original.id,
+        content: String(row.original[selectedColumnForAI.id as keyof UnifiedDataItem] || '')
+      }))
+      .filter(item => item.content.trim().length > 0)
     
     if (columnData.length === 0) {
-      alert('选择的列没有可处理的数据')
+      alert(`选择的列在${processingInfo.processingScope === 'selected' ? '选中行' : processingInfo.processingScope === 'filtered' ? '筛选结果' : '全表'}中没有可处理的数据`)
       return
     }
     
-    // 生成新的AI列键
-    const newColumnKey = getNewColumnKey(selectedColumnForAI.id, config.promptTemplate)
+    // 根据写入目标生成不同的列键
+    let newColumnKey: string
+    if (config.writeTarget === 'virtual') {
+      newColumnKey = `${selectedColumnForAI.id}_ai_draft_${Date.now().toString().slice(-6)}`
+    } else {
+      // 对于覆盖和追加模式，直接使用原列ID
+      newColumnKey = selectedColumnForAI.id
+    }
     
-    // 添加到AI列集合
-    setAiColumns(prev => new Set([...prev, newColumnKey]))
-    
-    // 显示新列
-    setColumnVisibility(prev => ({
-      ...prev,
-      [newColumnKey]: true,
-    }))
+    // 只有虚拟列模式才添加到AI列集合
+    if (config.writeTarget === 'virtual') {
+      setAiColumns(prev => new Set([...prev, newColumnKey]))
+      setColumnVisibility(prev => ({
+        ...prev,
+        [newColumnKey]: true,
+      }))
+    }
     
     // 关闭抽屉
     setShowAIDrawer(false)
     
     // 开始批处理
-    await startBatch(selectedColumnForAI.id, columnData, config)
-  }, [selectedColumnForAI, tableData, getNewColumnKey, startBatch])
+    await startBatch(selectedColumnForAI.id, columnData, {
+      ...config,
+      processingScope: processingInfo.processingScope,
+    })
+  }, [selectedColumnForAI, getProcessingInfo, getNewColumnKey, startBatch])
   
   // 同步数据变化到父组件
   React.useEffect(() => {
@@ -943,28 +1075,41 @@ export function YouTubeTable({
       />
       
       {/* AI批处理抽屉 */}
-      <AIPromptDrawer
-        isOpen={showAIDrawer}
-        onClose={() => {
-          setShowAIDrawer(false)
-          setSelectedColumnForAI(null)
-        }}
-        onSubmit={handleAIBatchSubmit}
-        columnId={selectedColumnForAI?.id || ''}
-        columnName={selectedColumnForAI?.name || ''}
-        dataCount={tableData.filter(row => 
-          selectedColumnForAI ? 
-            String(row[selectedColumnForAI.id as keyof UnifiedDataItem] || '').trim().length > 0 
-            : false
-        ).length}
-        sampleData={selectedColumnForAI ? 
-          tableData
-            .map(row => String(row[selectedColumnForAI.id as keyof UnifiedDataItem] || ''))
-            .filter(content => content.trim().length > 0)
-            .slice(0, 3)
-          : []
-        }
-      />
+      {selectedColumnForAI && (
+        <AIPromptDrawer
+          isOpen={showAIDrawer}
+          onClose={() => {
+            setShowAIDrawer(false)
+            setSelectedColumnForAI(null)
+          }}
+          onSubmit={handleAIBatchSubmit}
+          columnId={selectedColumnForAI.id}
+          columnName={selectedColumnForAI.name}
+          dataCount={(() => {
+            const info = getProcessingInfo()
+            return info.targetRows
+              .map(row => String(row.original[selectedColumnForAI.id as keyof UnifiedDataItem] || ''))
+              .filter(content => content.trim().length > 0)
+              .length
+          })()}
+          sampleData={(() => {
+            const info = getProcessingInfo()
+            return info.targetRows
+              .map(row => String(row.original[selectedColumnForAI.id as keyof UnifiedDataItem] || ''))
+              .filter(content => content.trim().length > 0)
+              .slice(0, 3)
+          })()}
+          selectedRowCount={Object.keys(rowSelection).filter(key => rowSelection[key]).length}
+          filteredRowCount={table.getFilteredRowModel().rows.length}
+          totalRowCount={table.getCoreRowModel().rows.length}
+          processingScope={(() => {
+            const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length
+            if (selectedCount > 0) return 'selected'
+            if (columnFilters.length > 0 || globalFilter) return 'filtered'
+            return 'all'
+          })()}
+        />
+      )}
     </div>
   )
 }

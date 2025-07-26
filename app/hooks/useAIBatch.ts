@@ -37,6 +37,16 @@ export interface BatchEstimate {
   currency: string;
 }
 
+// 虚拟列草稿数据
+export interface VirtualColumnDraft {
+  columnKey: string;
+  originalColumnId: string;
+  writeTarget: 'virtual' | 'overwrite' | 'append';
+  jobId: string;
+  draftData: Map<string, BatchItemResult>; // rowId -> result
+  acceptedRows: Set<string>; // 已接受的rowId集合
+}
+
 // 批处理状态
 export interface BatchState {
   status: BatchStatus;
@@ -46,6 +56,10 @@ export interface BatchState {
   progress: BatchProgress | null;
   estimate: BatchEstimate | null;
   error: string | null;
+  // 新增：虚拟列相关状态
+  isVirtualColumn: boolean;
+  virtualDrafts: Map<string, VirtualColumnDraft>; // columnKey -> draft
+  currentDraftKey: string | null;
 }
 
 // Hook返回类型
@@ -67,6 +81,13 @@ export interface UseAIBatchReturn {
   // 工具方法
   getNewColumnKey: (originalColumnId: string, promptTemplate: string) => string;
   getFailedItemsData: () => Array<{ rowId: string; content: string }>;
+  
+  // 新增：虚拟列相关方法
+  acceptSingleRow: (rowId: string, columnKey: string) => void;
+  acceptAllRows: (columnKey: string) => void;
+  rejectVirtualColumn: (columnKey: string) => void;
+  commitVirtualColumn: (columnKey: string, mode: 'virtual' | 'overwrite' | 'append') => Promise<void>;
+  getVirtualColumnData: (columnKey: string) => VirtualColumnDraft | undefined;
 }
 
 // SSE事件类型
@@ -93,6 +114,10 @@ export function useAIBatch(): UseAIBatchReturn {
     progress: null,
     estimate: null,
     error: null,
+    // 新增虚拟列状态
+    isVirtualColumn: false,
+    virtualDrafts: new Map(),
+    currentDraftKey: null,
   });
   
   // 存储当前请求的数据和配置，用于重试
@@ -167,6 +192,24 @@ export function useAIBatch(): UseAIBatchReturn {
             if (sseEvent.data.progress) {
               newState.progress = sseEvent.data.progress;
             }
+            
+            // 如果是虚拟列模式，创建草稿
+            if (newState.isVirtualColumn && newState.jobId && currentRequestRef.current) {
+              const { columnId, config } = currentRequestRef.current;
+              const columnKey = `${columnId}_ai_draft_${newState.jobId.split('_').pop()}`;
+              
+              const draft: VirtualColumnDraft = {
+                columnKey,
+                originalColumnId: columnId,
+                writeTarget: config.writeTarget || 'virtual',
+                jobId: newState.jobId,
+                draftData: new Map(newState.results),
+                acceptedRows: new Set(),
+              };
+              
+              newState.virtualDrafts.set(columnKey, draft);
+              newState.currentDraftKey = columnKey;
+            }
             break;
             
           case 'error':
@@ -204,8 +247,11 @@ export function useAIBatch(): UseAIBatchReturn {
       // 保存请求数据用于重试
       currentRequestRef.current = { columnId, data, config };
       
+      // 判断是否为虚拟列模式
+      const isVirtualMode = config.writeTarget === 'virtual';
+      
       // 重置状态
-      setBatchState({
+      setBatchState(prev => ({
         status: config.dryRun ? BatchStatus.ESTIMATING : BatchStatus.RUNNING,
         jobId: null,
         results: new Map(),
@@ -213,7 +259,11 @@ export function useAIBatch(): UseAIBatchReturn {
         progress: null,
         estimate: null,
         error: null,
-      });
+        // 保留虚拟列相关状态，如果是虚拟列模式
+        isVirtualColumn: isVirtualMode,
+        virtualDrafts: isVirtualMode ? prev.virtualDrafts : new Map(),
+        currentDraftKey: null,
+      }));
       
       // 发送POST请求到SSE端点
       const response = await fetch('/api/ai/batch', {
@@ -228,6 +278,8 @@ export function useAIBatch(): UseAIBatchReturn {
           promptTemplate: config.promptTemplate,
           maxConcurrency: config.maxConcurrency,
           dryRun: config.dryRun,
+          writeTarget: config.writeTarget,
+          processingScope: config.processingScope,
         }),
       });
       
@@ -326,10 +378,129 @@ export function useAIBatch(): UseAIBatchReturn {
       progress: null,
       estimate: null,
       error: null,
+      isVirtualColumn: false,
+      virtualDrafts: new Map(),
+      currentDraftKey: null,
     });
     
     currentRequestRef.current = null;
   }, []);
+  
+  // 接受单行数据
+  const acceptSingleRow = useCallback((rowId: string, columnKey: string) => {
+    setBatchState(prev => {
+      const draft = prev.virtualDrafts.get(columnKey);
+      if (!draft) return prev;
+      
+      const newDraft = {
+        ...draft,
+        acceptedRows: new Set([...draft.acceptedRows, rowId]),
+      };
+      
+      const newDrafts = new Map(prev.virtualDrafts);
+      newDrafts.set(columnKey, newDraft);
+      
+      return {
+        ...prev,
+        virtualDrafts: newDrafts,
+      };
+    });
+  }, []);
+  
+  // 接受所有行数据
+  const acceptAllRows = useCallback((columnKey: string) => {
+    setBatchState(prev => {
+      const draft = prev.virtualDrafts.get(columnKey);
+      if (!draft) return prev;
+      
+      const allRowIds = Array.from(draft.draftData.keys()).filter(
+        rowId => draft.draftData.get(rowId)?.status === 'ok'
+      );
+      
+      const newDraft = {
+        ...draft,
+        acceptedRows: new Set(allRowIds),
+      };
+      
+      const newDrafts = new Map(prev.virtualDrafts);
+      newDrafts.set(columnKey, newDraft);
+      
+      return {
+        ...prev,
+        virtualDrafts: newDrafts,
+      };
+    });
+  }, []);
+  
+  // 撤销虚拟列
+  const rejectVirtualColumn = useCallback((columnKey: string) => {
+    setBatchState(prev => {
+      const newDrafts = new Map(prev.virtualDrafts);
+      newDrafts.delete(columnKey);
+      
+      return {
+        ...prev,
+        virtualDrafts: newDrafts,
+        currentDraftKey: prev.currentDraftKey === columnKey ? null : prev.currentDraftKey,
+      };
+    });
+  }, []);
+  
+  // 提交虚拟列到数据库
+  const commitVirtualColumn = useCallback(async (
+    columnKey: string, 
+    mode: 'virtual' | 'overwrite' | 'append'
+  ) => {
+    const draft = batchState.virtualDrafts.get(columnKey);
+    if (!draft) {
+      throw new Error('找不到对应的虚拟列草稿');
+    }
+    
+    // 只提交已接受的行
+    const acceptedData = Array.from(draft.acceptedRows)
+      .map(rowId => {
+        const result = draft.draftData.get(rowId);
+        return result ? { rowId, output: result.output } : null;
+      })
+      .filter(Boolean);
+    
+    if (acceptedData.length === 0) {
+      throw new Error('没有可提交的数据');
+    }
+    
+    try {
+      const response = await fetch('/api/ai/commit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          originalColumnId: draft.originalColumnId,
+          columnKey,
+          writeTarget: mode,
+          data: acceptedData,
+          jobId: draft.jobId,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '提交失败');
+      }
+      
+      // 提交成功后移除草稿
+      rejectVirtualColumn(columnKey);
+      
+    } catch (error) {
+      console.error('提交虚拟列失败:', error);
+      throw error;
+    }
+  }, [batchState.virtualDrafts, rejectVirtualColumn]);
+  
+  // 获取虚拟列数据
+  const getVirtualColumnData = useCallback((columnKey: string): VirtualColumnDraft | undefined => {
+    return batchState.virtualDrafts.get(columnKey);
+  }, [batchState.virtualDrafts]);
   
   return {
     batchState,
@@ -339,5 +510,11 @@ export function useAIBatch(): UseAIBatchReturn {
     clearResults,
     getNewColumnKey,
     getFailedItemsData,
+    // 虚拟列方法
+    acceptSingleRow,
+    acceptAllRows,
+    rejectVirtualColumn,
+    commitVirtualColumn,
+    getVirtualColumnData,
   };
 }

@@ -36,8 +36,16 @@ export const DEFAULT_AI_CONFIG: AIConfig = {
 export function getAIConfig(overrides?: Partial<AIConfig>): AIConfig {
   const config = { ...DEFAULT_AI_CONFIG, ...overrides };
   
+  // 调试日志：输出环境变量状态
+  console.log('Environment variables debug:', {
+    hasOpenRouterKey: !!process.env.OPENROUTER_API_KEY,
+    keyLength: process.env.OPENROUTER_API_KEY?.length || 0,
+    configApiKey: config.apiKey,
+    nodeEnv: process.env.NODE_ENV
+  });
+  
   if (!config.apiKey) {
-    throw new Error('缺少OPENROUTER_API_KEY环境变量');
+    throw new Error('缺少OPENROUTER_API_KEY环境变量，请检查.env.local文件配置');
   }
   
   return config;

@@ -15,6 +15,9 @@ const BatchRequestSchema = z.object({
   promptTemplate: z.string().min(1, '提示词模板不能为空'),
   maxConcurrency: z.number().min(1).max(10).default(3),
   dryRun: z.boolean().default(false),
+  // 新增参数
+  writeTarget: z.enum(['virtual', 'overwrite', 'append']).default('virtual'),
+  processingScope: z.enum(['selected', 'filtered', 'all']).default('all'),
 });
 
 type BatchRequest = z.infer<typeof BatchRequestSchema>;
@@ -56,13 +59,58 @@ function sendSSEEvent(controller: ReadableStreamDefaultController, event: BatchP
   controller.enqueue(new TextEncoder().encode(data));
 }
 
+// 内存存储幂等性检查（实际项目应使用Redis或数据库）
+const runningJobs = new Map<string, {
+  jobId: string;
+  status: 'running' | 'completed' | 'failed';
+  startTime: number;
+  results?: any;
+}>();
+
 export async function POST(request: NextRequest) {
   try {
     // 解析请求体
     const body = await request.json();
     const validatedData = BatchRequestSchema.parse(body);
     
-    const { columnId, data, model, promptTemplate, maxConcurrency, dryRun } = validatedData;
+    const { 
+      columnId, 
+      data, 
+      model, 
+      promptTemplate, 
+      maxConcurrency, 
+      dryRun, 
+      writeTarget, 
+      processingScope 
+    } = validatedData;
+    
+    // 生成幂等性键：基于列ID、模板hash和行集合hash
+    const rowIds = data.map(item => item.rowId).sort().join(',');
+    const templateHash = hashPrompt(promptTemplate);
+    const idempotencyKey = `${columnId}_${templateHash}_${hashPrompt(rowIds)}`;
+    
+    // 检查是否已有相同任务在运行或已完成
+    if (runningJobs.has(idempotencyKey)) {
+      const existingJob = runningJobs.get(idempotencyKey)!;
+      
+      if (existingJob.status === 'running') {
+        return NextResponse.json({
+          success: false,
+          error: '相同配置的任务正在进行中',
+          existingJobId: existingJob.jobId,
+          message: '请等待当前任务完成或先取消当前任务'
+        }, { status: 409 });
+      }
+      
+      if (existingJob.status === 'completed') {
+        return NextResponse.json({
+          success: true,
+          jobId: existingJob.jobId,
+          results: existingJob.results,
+          message: '返回已完成的相同任务结果（幂等性）'
+        });
+      }
+    }
     
     // 验证提示词模板
     const templateValidation = validateTemplate(promptTemplate);
@@ -82,7 +130,14 @@ export async function POST(request: NextRequest) {
     }
     
     // 生成作业ID
-    const jobId = `batch_${Date.now()}_${hashPrompt(promptTemplate)}`;
+    const jobId = `batch_${Date.now()}_${templateHash}`;
+    
+    // 记录任务开始（幂等性）
+    runningJobs.set(idempotencyKey, {
+      jobId,
+      status: 'running',
+      startTime: Date.now(),
+    });
     
     // 如果是dry run，只返回估算信息
     if (dryRun) {
@@ -142,11 +197,29 @@ export async function POST(request: NextRequest) {
                     throw new Error(result.error);
                   }
                   
-                  // 成功处理
+                  let output = result.content;
+                  let errorType: string | undefined;
+                  
+                  // 尝试解析JSON（如果提示词要求JSON格式）
+                  if (promptTemplate.toLowerCase().includes('json') || 
+                      promptTemplate.includes('{') || 
+                      promptTemplate.includes('}')) {
+                    try {
+                      // 尝试解析为JSON以验证格式
+                      JSON.parse(output);
+                    } catch (jsonError) {
+                      // JSON解析失败，但仍保留原内容，标记错误类型
+                      errorType = 'JSON_PARSE_ERROR';
+                      console.warn(`JSON解析失败 (rowId: ${item.rowId}):`, jsonError);
+                    }
+                  }
+                  
+                  // 成功处理（即使有JSON错误也算成功，让用户选择是否接受）
                   const successResult = {
                     rowId: item.rowId,
-                    output: result.content,
-                    status: 'ok' as const,
+                    output,
+                    status: errorType ? 'failed' as const : 'ok' as const,
+                    error: errorType,
                   };
                   
                   results[index] = successResult;
@@ -208,6 +281,17 @@ export async function POST(request: NextRequest) {
           // 等待所有任务完成
           await Promise.all(tasks);
           
+          // 更新幂等性状态为已完成
+          runningJobs.set(idempotencyKey, {
+            jobId,
+            status: 'completed',
+            startTime: runningJobs.get(idempotencyKey)?.startTime || Date.now(),
+            results: results.reduce((acc, result) => {
+              acc[result.rowId] = result;
+              return acc;
+            }, {} as Record<string, any>),
+          });
+          
           // 发送完成事件
           sendSSEEvent(controller, {
             type: 'complete',
@@ -222,6 +306,13 @@ export async function POST(request: NextRequest) {
           });
           
         } catch (error) {
+          // 更新幂等性状态为失败
+          runningJobs.set(idempotencyKey, {
+            jobId,
+            status: 'failed',
+            startTime: runningJobs.get(idempotencyKey)?.startTime || Date.now(),
+          });
+          
           console.error('批处理执行失败:', error);
           sendSSEEvent(controller, {
             type: 'error',

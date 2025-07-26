@@ -25,6 +25,11 @@ export interface AIPromptDrawerProps {
   columnName: string;
   dataCount: number;
   sampleData: string[];
+  // 新增：选中行相关信息
+  selectedRowCount?: number;
+  filteredRowCount?: number;
+  totalRowCount?: number;
+  processingScope?: 'selected' | 'filtered' | 'all';
 }
 
 // AI批处理配置接口
@@ -33,6 +38,9 @@ export interface AIBatchConfig {
   promptTemplate: string;
   maxConcurrency: number;
   dryRun: boolean;
+  // 新增：写入目标选项
+  writeTarget: 'virtual' | 'overwrite' | 'append';
+  processingScope?: 'selected' | 'filtered' | 'all';
 }
 
 // 从OpenRouter配置生成可用模型列表
@@ -49,13 +57,27 @@ export default function AIPromptDrawer({
   columnName,
   dataCount,
   sampleData,
+  selectedRowCount = 0,
+  filteredRowCount,
+  totalRowCount,
+  processingScope = 'all',
 }: AIPromptDrawerProps) {
   // 状态管理
   const [model, setModel] = useState(AVAILABLE_MODELS[0].value);
   const [promptTemplate, setPromptTemplate] = useState('');
   const [maxConcurrency, setMaxConcurrency] = useState(3);
-  const [dryRun, setDryRun] = useState(true);
-  const [selectedPreset, setSelectedPreset] = useState<string>('');
+  const [dryRun, setDryRun] = useState(false); // 默认执行实际处理
+  const [selectedPreset, setSelectedPreset] = useState<string>('summary'); // 默认选择摘要模板
+  // 新增：写入目标选择
+  const [writeTarget, setWriteTarget] = useState<'virtual' | 'overwrite' | 'append'>('virtual');
+
+  // 初始化时设置默认模板
+  React.useEffect(() => {
+    if (!promptTemplate && selectedPreset && selectedPreset !== 'custom') {
+      const template = getPresetTemplate(selectedPreset as PresetTemplate);
+      setPromptTemplate(template);
+    }
+  }, [selectedPreset, promptTemplate]);
   
   // 验证和估算状态
   const [templateValidation, setTemplateValidation] = useState<{
@@ -122,6 +144,8 @@ export default function AIPromptDrawer({
       promptTemplate,
       maxConcurrency,
       dryRun,
+      writeTarget,
+      processingScope,
     });
   };
   
@@ -139,13 +163,22 @@ export default function AIPromptDrawer({
       className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
       onClick={handleOverlayClick}
     >
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         {/* 头部 */}
-        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white">
+        <div className="flex items-center justify-between p-6 border-b bg-gradient-to-r from-blue-500 to-purple-600 text-white flex-shrink-0">
           <div>
             <h2 className="text-xl font-semibold">AI 批量处理</h2>
             <p className="text-blue-100 mt-1">
               对 "{columnName}" 列的 {dataCount} 条数据进行批量AI处理
+              {processingScope === 'selected' && selectedRowCount > 0 && (
+                <span className="ml-2 text-yellow-200">({selectedRowCount} 行已选中)</span>
+              )}
+              {processingScope === 'filtered' && filteredRowCount && (
+                <span className="ml-2 text-yellow-200">({filteredRowCount} 行筛选结果)</span>
+              )}
+              {processingScope === 'all' && totalRowCount && (
+                <span className="ml-2 text-yellow-200">(全表 {totalRowCount} 行)</span>
+              )}
             </p>
           </div>
           <button
@@ -156,7 +189,7 @@ export default function AIPromptDrawer({
           </button>
         </div>
         
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+        <div className="p-6 overflow-y-auto flex-1 min-h-0">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 左侧：配置选项 */}
             <div className="space-y-6">
@@ -219,9 +252,9 @@ export default function AIPromptDrawer({
                 />
                 
                 {/* 模板验证状态 */}
-                {promptTemplate && (
-                  <div className="mt-2">
-                    {templateValidation.isValid ? (
+                <div className="mt-2">
+                  {promptTemplate ? (
+                    templateValidation.isValid ? (
                       <div className="flex items-center text-green-600 text-sm">
                         <CheckCircle className="w-4 h-4 mr-1" />
                         模板格式正确
@@ -234,11 +267,16 @@ export default function AIPromptDrawer({
                     ) : (
                       <div className="flex items-center text-red-600 text-sm">
                         <AlertCircle className="w-4 h-4 mr-1" />
-                        {templateValidation.error || '请输入模板'}
+                        {templateValidation.error || '模板格式无效'}
                       </div>
-                    )}
-                  </div>
-                )}
+                    )
+                  ) : (
+                    <div className="flex items-center text-orange-600 text-sm">
+                      <AlertCircle className="w-4 h-4 mr-1" />
+                      请输入提示词模板才能开始处理
+                    </div>
+                  )}
+                </div>
               </div>
               
               {/* 并发设置 */}
@@ -262,22 +300,51 @@ export default function AIPromptDrawer({
                 </p>
               </div>
               
-              {/* 试运行选项 */}
+              {/* 写入目标选择 */}
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  写入目标
+                </label>
+                <select
+                  value={writeTarget}
+                  onChange={(e) => setWriteTarget(e.target.value as 'virtual' | 'overwrite' | 'append')}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="virtual">虚拟列（草稿模式，默认）</option>
+                  <option value="overwrite">覆盖原列（带版本备份）</option>
+                  <option value="append">追加到原列（分隔符拼接）</option>
+                </select>
+                <div className="text-xs text-gray-500 mt-1">
+                  {writeTarget === 'virtual' && '创建虚拟列草稿，不修改原数据，可逐行接受或全部提交'}
+                  {writeTarget === 'overwrite' && '先备份到版本表，然后覆盖原列数据，支持回滚'}
+                  {writeTarget === 'append' && '在原列内容后面用分隔符追加AI结果，保留原内容'}
+                </div>
+              </div>
+
+              {/* 执行模式选择 */}
+              <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                 <label className="flex items-center">
                   <input
                     type="checkbox"
                     checked={dryRun}
                     onChange={(e) => setDryRun(e.target.checked)}
-                    className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="mr-3 h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded"
                   />
                   <span className="text-sm font-medium text-gray-700">
-                    仅估算费用（不执行实际处理）
+                    仅估算费用（不执行实际AI处理）
                   </span>
                 </label>
-                <p className="text-xs text-gray-500 mt-1 ml-6">
-                  开启后只会显示费用估算，不会调用AI接口
-                </p>
+                <div className="mt-2 ml-7 text-xs">
+                  {dryRun ? (
+                    <div className="text-orange-600">
+                      ⚠️ 当前为预览模式，点击"估算费用"只会计算成本，不会实际调用AI
+                    </div>
+                  ) : (
+                    <div className="text-green-600">
+                      ✅ 当前为执行模式，点击"开始处理"将实际调用AI进行批量处理
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             
@@ -355,9 +422,11 @@ export default function AIPromptDrawer({
         </div>
         
         {/* 底部按钮 */}
-        <div className="flex items-center justify-between p-6 border-t bg-gray-50">
+        <div className="flex items-center justify-between p-6 border-t bg-gray-50 flex-shrink-0">
           <div className="text-sm text-gray-500">
-            将处理 {dataCount} 条数据，生成新列：{columnId}_ai_{Date.now().toString().slice(-6)}
+            {writeTarget === 'virtual' && `将处理 ${dataCount} 条数据，生成草稿列：${columnId}_ai_draft_${Date.now().toString().slice(-6)}`}
+            {writeTarget === 'overwrite' && `将处理 ${dataCount} 条数据，覆盖列"${columnName}"（原数据将备份）`}
+            {writeTarget === 'append' && `将处理 ${dataCount} 条数据，追加到列"${columnName}"`}
           </div>
           <div className="flex gap-3">
             <button
@@ -369,9 +438,14 @@ export default function AIPromptDrawer({
             <button
               onClick={handleSubmit}
               disabled={!templateValidation.isValid}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+              className={`px-6 py-2 rounded-lg transition-colors flex items-center gap-2 font-medium ${
+                templateValidation.isValid
+                  ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2'
+                  : 'bg-gray-400 text-gray-100 cursor-not-allowed border-2 border-gray-300'
+              }`}
+              title={!templateValidation.isValid ? '请先输入有效的提示词模板' : ''}
             >
-              <Play className="w-4 h-4" />
+              <Play className={`w-4 h-4 ${!templateValidation.isValid ? 'text-gray-200' : ''}`} />
               {dryRun ? '估算费用' : '开始处理'}
             </button>
           </div>
