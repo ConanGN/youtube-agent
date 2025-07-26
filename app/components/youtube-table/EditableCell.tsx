@@ -162,10 +162,11 @@ export function EditableCell({
   }
 
   // 计算显示文本（截断处理）
-  const getDisplayText = (text: string, maxLength: number = 50) => {
+  const getDisplayText = (text: any, maxLength: number = 50) => {
     if (!text) return ''
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + '...'
+    const textStr = String(text) // 确保转换为字符串
+    if (textStr.length <= maxLength) return textStr
+    return textStr.substring(0, maxLength) + '...'
   }
 
   // 渲染显示状态

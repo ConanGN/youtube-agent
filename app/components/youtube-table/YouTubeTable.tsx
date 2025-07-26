@@ -25,6 +25,7 @@ import { Zap, AlertCircle, CheckCircle, RefreshCw, X } from 'lucide-react'
 import { YouTubeVideo, EditHistory, UnifiedDataItem } from '@/types'
 import { EditableCell, NumberEditableCell } from './EditableCell'
 import { ThumbnailEditableCell } from './ThumbnailEditableCell'
+import { SubtitleEditDialog } from './SubtitleEditDialog'
 import { Filter, GlobalFilter, ColumnVisibility, AdvancedFilterPanel } from './FilterComponents'
 import AIPromptDrawer, { type AIBatchConfig } from '@/app/components/ai/AIPromptDrawer'
 import { useAIBatch, BatchStatus } from '@/app/hooks/useAIBatch'
@@ -108,6 +109,7 @@ export function YouTubeTable({
     publishedAt: true,
     originalData: true,
     description: true,
+    subtitles: true, // 默认显示字幕列
     // 默认隐藏YouTube特有的列（如果没有数据）
     viewCount: false,
     likeCount: false,
@@ -126,6 +128,18 @@ export function YouTubeTable({
     name: string;
   } | null>(null)
   const [aiColumns, setAiColumns] = useState<Set<string>>(new Set())
+  
+  // 字幕相关状态
+  const [subtitleFetching, setSubtitleFetching] = useState(false)
+  const [subtitleEditDialog, setSubtitleEditDialog] = useState<{
+    isOpen: boolean
+    videoId: string
+    currentSubtitles: string
+  }>({
+    isOpen: false,
+    videoId: '',
+    currentSubtitles: ''
+  })
   
   // AI批处理Hook
   const {
@@ -146,6 +160,156 @@ export function YouTubeTable({
   // 防止自动重置页码
   const [autoResetPageIndex, skipAutoResetPageIndex] = useSkipper()
 
+  // 字幕相关工具函数
+  const formatSubtitles = (cues: any[]): string => {
+    if (!cues || cues.length === 0) return ''
+    return cues.map((cue, index) => {
+      const startTime = formatTime(cue.start)
+      const endTime = formatTime(cue.start + cue.dur)
+      return `${index + 1}. [${startTime} - ${endTime}] ${cue.text}`
+    }).join('\n')
+  }
+
+  const formatTime = (seconds: number): string => {
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // 字幕编辑相关函数
+  const handleOpenSubtitleEdit = (videoId: string, subtitles: any) => {
+    const subtitleText = formatSubtitles(subtitles.cues)
+    setSubtitleEditDialog({
+      isOpen: true,
+      videoId: videoId,
+      currentSubtitles: subtitleText
+    })
+  }
+
+  const handleCloseSubtitleEdit = () => {
+    setSubtitleEditDialog({
+      isOpen: false,
+      videoId: '',
+      currentSubtitles: ''
+    })
+  }
+
+  const handleSaveSubtitleEdit = (newText: string) => {
+    // 更新表格数据中的字幕内容
+    const updatedData = tableData.map(item => {
+      if (item.id === subtitleEditDialog.videoId) {
+        return {
+          ...item,
+          subtitles: {
+            ...item.subtitles,
+            rawText: newText // 保存原始编辑文本
+          }
+        }
+      }
+      return item
+    })
+    
+    setTableData(updatedData)
+    onDataChange?.(updatedData)
+    
+    // 关闭弹窗
+    handleCloseSubtitleEdit()
+  }
+
+  const hasSelectedVideos = Object.keys(rowSelection).length > 0
+
+  // 字幕批量抓取处理函数
+  const handleBatchSubtitleFetch = async () => {
+    const selectedIds = Object.keys(rowSelection).filter(key => rowSelection[key])
+    const selectedVideos = tableData.filter(item => selectedIds.includes(item.id))
+    
+    // 限制最多10个视频
+    if (selectedVideos.length > 10) {
+      alert('一次最多只能抓取10个视频的字幕')
+      return
+    }
+    
+    if (selectedVideos.length === 0) {
+      alert('请先选择要抓取字幕的视频')
+      return
+    }
+
+    setSubtitleFetching(true)
+    
+    try {
+      // 设置选中视频的加载状态
+      const updatedData = tableData.map(item => {
+        if (selectedVideos.some(video => video.id === item.id)) {
+          return { ...item, subtitlesStatus: 'loading' as const }
+        }
+        return item
+      })
+      setTableData(updatedData)
+      onDataChange?.(updatedData)
+
+      // 提取视频ID
+      const videoIds = selectedVideos.map(video => video.id)
+      
+      // 调用字幕抓取API
+      const response = await fetch(`/api/subtitles?${videoIds.map(id => `id=${id}`).join('&')}`)
+      const results = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(results.error || '字幕抓取失败')
+      }
+      
+      // 更新表格数据
+      const finalData = tableData.map(item => {
+        const subtitleResult = results.find((result: any) => result.id === item.id)
+        if (subtitleResult) {
+          if (subtitleResult.error) {
+            return { 
+              ...item, 
+              subtitlesStatus: 'error' as const, 
+              subtitlesError: subtitleResult.error 
+            }
+          } else if (subtitleResult.cues.length === 0) {
+            return { 
+              ...item, 
+              subtitlesStatus: 'empty' as const 
+            }
+          } else {
+            return { 
+              ...item, 
+              subtitles: subtitleResult,
+              subtitlesStatus: 'success' as const,
+              subtitlesError: undefined
+            }
+          }
+        }
+        return item
+      })
+      
+      setTableData(finalData)
+      onDataChange?.(finalData)
+      
+    } catch (error) {
+      console.error('字幕抓取失败:', error)
+      
+      // 设置错误状态
+      const errorData = tableData.map(item => {
+        if (selectedVideos.some(video => video.id === item.id)) {
+          return { 
+            ...item, 
+            subtitlesStatus: 'error' as const, 
+            subtitlesError: error instanceof Error ? error.message : '抓取失败' 
+          }
+        }
+        return item
+      })
+      setTableData(errorData)
+      onDataChange?.(errorData)
+      
+    } finally {
+      setSubtitleFetching(false)
+    }
+  }
+
   // 同步外部数据变化
   React.useEffect(() => {
     setTableData(data)
@@ -164,6 +328,7 @@ export function YouTubeTable({
         title: true,
         channelTitle: true,
         publishedAt: true,
+        subtitles: true, // 字幕列始终显示
         // YouTube特有列
         viewCount: hasYouTubeData,
         likeCount: hasYouTubeData,
@@ -386,6 +551,87 @@ export function YouTubeTable({
         },
         minSize: 120, // 减少最小宽度，配合响应式筛选器
       },
+      // 字幕列
+      {
+        accessorKey: 'subtitles',
+        header: () => (
+          <div className="flex items-center space-x-2">
+            <span>字幕</span>
+            <button
+              onClick={handleBatchSubtitleFetch}
+              disabled={!hasSelectedVideos || subtitleFetching}
+              className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+              title="批量抓取选中视频的字幕（最多10个）"
+            >
+              {subtitleFetching ? (
+                <>
+                  <RefreshCw className="w-3 h-3 animate-spin" />
+                  <span>抓取中</span>
+                </>
+              ) : (
+                <>
+                  <span>📝</span>
+                  <span>抓取字幕</span>
+                </>
+              )}
+            </button>
+          </div>
+        ),
+        cell: (props) => {
+          const video = props.row.original
+          const subtitles = video.subtitles
+          const status = video.subtitlesStatus
+          const error = video.subtitlesError
+          
+          return (
+            <div className="relative">
+              {status === 'loading' && (
+                <div className="flex items-center space-x-2 p-2 text-sm text-blue-600">
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  <span>加载中...</span>
+                </div>
+              )}
+              
+              {status === 'error' && (
+                <div className="flex items-center space-x-2 p-2 text-sm text-red-600">
+                  <AlertCircle className="w-4 h-4" />
+                  <span title={error}>{error?.substring(0, 30)}...</span>
+                </div>
+              )}
+              
+              {status === 'empty' && (
+                <div className="p-2 text-sm text-gray-500">
+                  无字幕
+                </div>
+              )}
+              
+              {status === 'success' && subtitles && (
+                <div 
+                  className="bg-green-50 border-green-200 p-2 rounded cursor-pointer hover:bg-green-100"
+                  onClick={() => handleOpenSubtitleEdit(video.id, subtitles)}
+                  title="点击编辑字幕内容"
+                >
+                  <div className="text-sm text-gray-700 whitespace-pre-line max-h-32 overflow-y-auto">
+                    {/* 优先显示用户编辑的内容，否则显示格式化的字幕 */}
+                    {subtitles.rawText || formatSubtitles(subtitles.cues)}
+                  </div>
+                </div>
+              )}
+              
+              {!status && (
+                <div className="p-2 text-sm text-gray-400">
+                  点击"抓取字幕"获取
+                </div>
+              )}
+            </div>
+          )
+        },
+        meta: {
+          filterVariant: 'text',
+        },
+        size: 200,
+        minSize: 150,
+      },
       // 动态AI列 - 根据aiColumns状态生成
       ...[...aiColumns].map((columnKey) => {
         const isDraftColumn = columnKey.includes('_ai_draft_')
@@ -583,7 +829,7 @@ export function YouTubeTable({
         enableResizing: true,
       },
     ],
-    [aiColumns, getVirtualColumnData, acceptAllRows, rejectVirtualColumn, commitVirtualColumn, batchState.virtualDrafts]
+    [aiColumns, getVirtualColumnData, acceptAllRows, rejectVirtualColumn, commitVirtualColumn, batchState.virtualDrafts, hasSelectedVideos, subtitleFetching, handleBatchSubtitleFetch, formatSubtitles]
   )
 
   // 数据更新函数
@@ -669,6 +915,7 @@ export function YouTubeTable({
         return cellValue.includes(searchValue)
       }
     },
+    getRowId: (row) => row.id, // 确保使用ID作为行标识符
     onRowSelectionChange: setRowSelection,
     autoResetPageIndex,
     enableRowSelection: true,
@@ -1103,6 +1350,15 @@ export function YouTubeTable({
           })()}
         />
       )}
+
+      {/* 字幕编辑弹窗 */}
+      <SubtitleEditDialog
+        isOpen={subtitleEditDialog.isOpen}
+        onClose={handleCloseSubtitleEdit}
+        title="字幕"
+        value={subtitleEditDialog.currentSubtitles}
+        onSave={handleSaveSubtitleEdit}
+      />
     </div>
   )
 }

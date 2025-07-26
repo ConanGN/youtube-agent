@@ -1,5 +1,30 @@
 // YouTube数据类型定义
 
+// 字幕相关类型定义
+export interface SubtitleCue {
+  start: number    // 开始时间（秒）
+  dur: number      // 持续时间（秒）
+  text: string     // 字幕文本
+}
+
+export interface SubtitleData {
+  id: string           // 视频ID
+  lang: string         // 语言代码
+  cues: SubtitleCue[]  // 字幕条目数组
+  error?: string       // 错误信息
+}
+
+export interface SubtitleBatchRequest {
+  videoIds: string[]   // 视频ID数组（最多10个）
+  lang?: string        // 语言代码，默认为'en'
+}
+
+export interface SubtitleBatchResponse {
+  results: SubtitleData[]  // 字幕结果数组
+  success: number          // 成功数量
+  failed: number           // 失败数量
+}
+
 export interface YouTubeVideo {
   id: string                    // 视频ID
   title: string                 // 视频标题
@@ -15,6 +40,11 @@ export interface YouTubeVideo {
   videoUrl: string              // 视频链接
   tags?: string[]               // 视频标签
   categoryId?: string           // 分类ID
+  
+  // 字幕相关字段
+  subtitles?: SubtitleData      // 字幕数据
+  subtitlesStatus?: 'loading' | 'success' | 'error' | 'empty' // 字幕加载状态
+  subtitlesError?: string       // 字幕加载错误信息
   
   // AI增强字段
   enhancedTitle?: string        // AI优化标题
@@ -151,6 +181,11 @@ export interface GenericDataItem {
   channelId?: string
   videoUrl?: string
   categoryId?: string
+  
+  // 字幕相关字段
+  subtitles?: SubtitleData
+  subtitlesStatus?: 'loading' | 'success' | 'error' | 'empty'
+  subtitlesError?: string
   
   // AI增强字段
   enhancedTitle?: string

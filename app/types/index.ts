@@ -20,6 +20,11 @@ export type {
   OptionalVideoFields,
   GenericDataItem,
   UnifiedDataItem,
+  // 字幕相关类型
+  SubtitleCue,
+  SubtitleData,
+  SubtitleBatchRequest,
+  SubtitleBatchResponse,
 } from './youtube'
 
 export { YouTubeAPIError } from './youtube'

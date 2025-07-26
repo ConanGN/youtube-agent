@@ -187,8 +187,8 @@ export function Filter({ column }: FilterProps) {
   return (
     <div className={`flex flex-col ${isNarrow ? 'space-y-1.5' : 'space-y-1'}`}>
       <datalist id={column.id + 'list'}>
-        {sortedUniqueValues.map((value: any) => (
-          <option value={value} key={value} />
+        {sortedUniqueValues.map((value: any, index: number) => (
+          <option value={value} key={`${column.id}-${value}-${index}`} />
         ))}
       </datalist>
       <div className="relative">
