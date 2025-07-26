@@ -71,7 +71,8 @@ export interface UseAIBatchReturn {
   startBatch: (
     columnId: string,
     data: Array<{ rowId: string; content: string }>,
-    config: AIBatchConfig
+    config: AIBatchConfig,
+    onVirtualColumnCreated?: (columnKey: string) => void
   ) => Promise<void>;
   
   retryFailedItems: () => Promise<void>;
@@ -125,6 +126,7 @@ export function useAIBatch(): UseAIBatchReturn {
     columnId: string;
     data: Array<{ rowId: string; content: string }>;
     config: AIBatchConfig;
+    onVirtualColumnCreated?: (columnKey: string) => void;
   } | null>(null);
   
   // 存储EventSource实例
@@ -195,7 +197,7 @@ export function useAIBatch(): UseAIBatchReturn {
             
             // 如果是虚拟列模式，创建草稿
             if (newState.isVirtualColumn && newState.jobId && currentRequestRef.current) {
-              const { columnId, config } = currentRequestRef.current;
+              const { columnId, config, onVirtualColumnCreated } = currentRequestRef.current;
               const columnKey = `${columnId}_ai_draft_${newState.jobId.split('_').pop()}`;
               
               const draft: VirtualColumnDraft = {
@@ -209,6 +211,11 @@ export function useAIBatch(): UseAIBatchReturn {
               
               newState.virtualDrafts.set(columnKey, draft);
               newState.currentDraftKey = columnKey;
+              
+              // 通知表格组件创建虚拟列
+              if (onVirtualColumnCreated) {
+                setTimeout(() => onVirtualColumnCreated(columnKey), 0);
+              }
             }
             break;
             
@@ -235,7 +242,8 @@ export function useAIBatch(): UseAIBatchReturn {
   const startBatch = useCallback(async (
     columnId: string,
     data: Array<{ rowId: string; content: string }>,
-    config: AIBatchConfig
+    config: AIBatchConfig,
+    onVirtualColumnCreated?: (columnKey: string) => void
   ) => {
     try {
       // 清理之前的连接
@@ -245,7 +253,7 @@ export function useAIBatch(): UseAIBatchReturn {
       }
       
       // 保存请求数据用于重试
-      currentRequestRef.current = { columnId, data, config };
+      currentRequestRef.current = { columnId, data, config, onVirtualColumnCreated };
       
       // 判断是否为虚拟列模式
       const isVirtualMode = config.writeTarget === 'virtual';
@@ -344,7 +352,7 @@ export function useAIBatch(): UseAIBatchReturn {
       return;
     }
     
-    const { columnId, data, config } = currentRequestRef.current;
+    const { columnId, data, config, onVirtualColumnCreated } = currentRequestRef.current;
     const failedData = data.filter(item => batchState.failedItems.includes(item.rowId));
     
     if (failedData.length === 0) {
@@ -352,7 +360,7 @@ export function useAIBatch(): UseAIBatchReturn {
     }
     
     // 启动批处理，只处理失败的项目
-    await startBatch(columnId, failedData, { ...config, dryRun: false });
+    await startBatch(columnId, failedData, { ...config, dryRun: false }, onVirtualColumnCreated);
   }, [batchState.failedItems, startBatch]);
   
   // 取消批处理

@@ -21,13 +21,6 @@ export default function DetailsPage() {
   const { setShowEnhancementPanel, setShowExportDialog } = useDialogActions()
   const { setSelectedVideoIds, setError } = useAppStore()
 
-  // 如果没有数据，重定向到主页
-  useEffect(() => {
-    if (!hasVideos) {
-      router.push('/')
-    }
-  }, [hasVideos, router])
-
   // 表格数据变化处理
   const handleTableDataChange = useCallback((updatedData: UnifiedDataItem[]) => {
     setVideos(updatedData)
@@ -59,13 +52,59 @@ export default function DetailsPage() {
     router.push('/')
   }
 
-  // 如果没有数据，显示加载或重定向信息
+  // 如果没有数据，显示空状态而不是重定向
   if (!hasVideos) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">🔄</div>
-          <p className="text-gray-600">正在重定向到主页...</p>
+      <div className="min-h-screen bg-gray-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          {/* 页面头部 */}
+          <div className="bg-white rounded-lg shadow-sm p-4 sm:p-6 mb-8">
+            <div className="flex flex-col space-y-4 sm:flex-row sm:items-center sm:justify-between sm:space-y-0">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-3 mb-2">
+                  <button
+                    onClick={handleBackToHome}
+                    className="text-blue-600 hover:text-blue-700 flex items-center space-x-2 text-sm"
+                  >
+                    <span>← 返回主页</span>
+                  </button>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 leading-tight">
+                  数据详情
+                </h1>
+                <p className="text-gray-600 mt-2 text-sm sm:text-base">
+                  管理和优化您的数据内容
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 空状态显示 */}
+          <div className="bg-white rounded-lg shadow-sm p-8 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="text-6xl mb-4">📊</div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">暂无数据</h3>
+              <p className="text-gray-600 mb-6">
+                您还没有上传任何数据。请先在主页上传YouTube链接或CSV文件。
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={handleBackToHome}
+                  className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  返回主页上传数据
+                </button>
+                <p className="text-sm text-gray-500">
+                  或者您可以直接在主页：
+                </p>
+                <div className="text-sm text-gray-600 space-y-1">
+                  <p>• 输入YouTube频道链接或视频链接</p>
+                  <p>• 上传CSV数据文件</p>
+                  <p>• 使用AI功能增强和分析数据</p>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     )

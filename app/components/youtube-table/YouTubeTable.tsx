@@ -582,7 +582,7 @@ export function YouTubeTable({
         enableResizing: true,
       },
     ],
-    []
+    [aiColumns, getVirtualColumnData, acceptAllRows, rejectVirtualColumn, commitVirtualColumn, batchState.virtualDrafts]
   )
 
   // 数据更新函数
@@ -771,23 +771,8 @@ export function YouTubeTable({
       return
     }
     
-    // 根据写入目标生成不同的列键
-    let newColumnKey: string
-    if (config.writeTarget === 'virtual') {
-      newColumnKey = `${selectedColumnForAI.id}_ai_draft_${Date.now().toString().slice(-6)}`
-    } else {
-      // 对于覆盖和追加模式，直接使用原列ID
-      newColumnKey = selectedColumnForAI.id
-    }
-    
-    // 只有虚拟列模式才添加到AI列集合
-    if (config.writeTarget === 'virtual') {
-      setAiColumns(prev => new Set([...prev, newColumnKey]))
-      setColumnVisibility(prev => ({
-        ...prev,
-        [newColumnKey]: true,
-      }))
-    }
+    // 暂时不预创建虚拟列，等待后端返回jobId后再创建
+    // 这样可以确保列键与后端返回的jobId一致
     
     // 关闭抽屉
     setShowAIDrawer(false)
@@ -796,6 +781,13 @@ export function YouTubeTable({
     await startBatch(selectedColumnForAI.id, columnData, {
       ...config,
       processingScope: processingInfo.processingScope,
+    }, (columnKey: string) => {
+      // 当虚拟列创建时，添加到AI列集合并显示
+      setAiColumns(prev => new Set([...prev, columnKey]))
+      setColumnVisibility(prev => ({
+        ...prev,
+        [columnKey]: true,
+      }))
     })
   }, [selectedColumnForAI, getProcessingInfo, getNewColumnKey, startBatch])
   
