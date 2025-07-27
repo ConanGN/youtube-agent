@@ -211,9 +211,10 @@ const parseSRV3Subtitles = (srv3Data: SRV3Response): SubtitleCue[] => {
 };
 
 // 处理单个视频的字幕抓取
-const fetchVideoSubtitles = async (videoId: string, lang: string = 'en'): Promise<SubtitleResult> => {
-  // 检查缓存
-  const cacheKey = `${videoId}_${lang}`;
+const fetchVideoSubtitles = async (videoId: string, preferredLangs: string[] = ['zh', 'zh-CN', 'zh-Hans', 'zh-TW', 'zh-Hant', 'en']): Promise<SubtitleResult> => {
+  // 使用第一个偏好语言作为缓存键
+  const primaryLang = preferredLangs[0];
+  const cacheKey = `${videoId}_${primaryLang}`;
   const cached = subtitleCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -223,12 +224,12 @@ const fetchVideoSubtitles = async (videoId: string, lang: string = 'en'): Promis
     // Step 1: 获取播放器数据
     const playerData = await retryWithBackoff(() => fetchPlayerData(videoId));
     
-    // 查找英文字幕轨道
+    // 查找可用的字幕轨道
     const captionTracks = playerData.captions?.playerCaptionsTracklistRenderer?.captionTracks;
     if (!captionTracks || captionTracks.length === 0) {
       const result: SubtitleResult = {
         id: videoId,
-        lang,
+        lang: primaryLang,
         cues: [],
         error: '该视频没有可用的字幕'
       };
@@ -236,14 +237,31 @@ const fetchVideoSubtitles = async (videoId: string, lang: string = 'en'): Promis
       return result;
     }
 
-    // 查找指定语言的字幕
-    const targetTrack = captionTracks.find(track => track.languageCode === lang);
+    // 按优先级查找字幕轨道
+    let targetTrack: CaptionTrack | undefined;
+    let selectedLang = primaryLang;
+    
+    for (const lang of preferredLangs) {
+      targetTrack = captionTracks.find(track => track.languageCode === lang);
+      if (targetTrack) {
+        selectedLang = lang;
+        break;
+      }
+    }
+
+    // 如果没有找到偏好语言，尝试使用第一个可用的字幕
+    if (!targetTrack && captionTracks.length > 0) {
+      targetTrack = captionTracks[0];
+      selectedLang = targetTrack.languageCode;
+    }
+
     if (!targetTrack) {
+      const availableLangs = captionTracks.map(track => track.languageCode).join(', ');
       const result: SubtitleResult = {
         id: videoId,
-        lang,
+        lang: primaryLang,
         cues: [],
-        error: `未找到${lang}语言的字幕`
+        error: `未找到偏好语言字幕，可用语言: ${availableLangs}`
       };
       subtitleCache.set(cacheKey, result);
       return result;
@@ -257,7 +275,7 @@ const fetchVideoSubtitles = async (videoId: string, lang: string = 'en'): Promis
     
     const result: SubtitleResult = {
       id: videoId,
-      lang,
+      lang: selectedLang, // 使用实际选中的语言
       cues
     };
 
@@ -270,7 +288,7 @@ const fetchVideoSubtitles = async (videoId: string, lang: string = 'en'): Promis
     
     const result: SubtitleResult = {
       id: videoId,
-      lang,
+      lang: primaryLang,
       cues: [],
       error: error instanceof Error ? error.message : '抓取字幕失败'
     };
@@ -284,6 +302,18 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const videoIds = searchParams.getAll('id');
+    
+    // 解析语言偏好参数
+    const langParam = searchParams.get('lang') || searchParams.get('langs');
+    let preferredLangs: string[];
+    
+    if (langParam) {
+      // 支持逗号分隔的多个语言
+      preferredLangs = langParam.split(',').map(lang => lang.trim());
+    } else {
+      // 默认语言优先级：中文（各种变体）> 英文
+      preferredLangs = ['zh', 'zh-CN', 'zh-Hans', 'zh-TW', 'zh-Hant', 'en'];
+    }
 
     // 验证输入参数
     if (!videoIds || videoIds.length === 0) {
@@ -319,7 +349,7 @@ export async function GET(request: NextRequest) {
       videoIds.map(videoId => 
         limit(async () => {
           try {
-            const result = await fetchVideoSubtitles(videoId);
+            const result = await fetchVideoSubtitles(videoId, preferredLangs);
             // 每次请求后随机延迟100-300ms
             await randomDelay(100, 300);
             return result;
@@ -327,7 +357,7 @@ export async function GET(request: NextRequest) {
             console.error(`Error processing video ${videoId}:`, error);
             return {
               id: videoId,
-              lang: 'en',
+              lang: preferredLangs[0],
               cues: [],
               error: error instanceof Error ? error.message : '处理失败'
             } as SubtitleResult;
