@@ -9,8 +9,9 @@ export interface SubtitleCue {
 
 export interface SubtitleData {
   id: string           // 视频ID
-  lang: string         // 语言代码
-  cues: SubtitleCue[]  // 字幕条目数组
+  lang: string         // 主要语言代码或 "multi" 表示多语言
+  languages: string[]  // 包含的所有语言列表
+  cues: SubtitleCue[]  // 字幕条目数组（多语言已合并）
   error?: string       // 错误信息
 }
 

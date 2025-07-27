@@ -8,9 +8,17 @@ interface SubtitleCue {
   text: string;
 }
 
+interface MultiLangSubtitleCue {
+  start: number;
+  dur: number;
+  text: string;
+  lang: string;
+}
+
 interface SubtitleResult {
   id: string;
-  lang: string;
+  lang: string; // 主要语言或 "multi" 表示多语言
+  languages: string[]; // 包含的所有语言列表
   cues: SubtitleCue[];
   error?: string;
 }
@@ -210,11 +218,128 @@ const parseSRV3Subtitles = (srv3Data: SRV3Response): SubtitleCue[] => {
   return cues;
 };
 
-// 处理单个视频的字幕抓取
-const fetchVideoSubtitles = async (videoId: string, preferredLangs: string[] = ['zh', 'zh-CN', 'zh-Hans', 'zh-TW', 'zh-Hant', 'en']): Promise<SubtitleResult> => {
-  // 使用第一个偏好语言作为缓存键
-  const primaryLang = preferredLangs[0];
-  const cacheKey = `${videoId}_${primaryLang}`;
+// 解析SRV3格式字幕为多语言格式
+const parseSRV3SubtitlesWithLang = (srv3Data: SRV3Response, lang: string): MultiLangSubtitleCue[] => {
+  const cues: MultiLangSubtitleCue[] = [];
+  
+  if (!srv3Data.events) {
+    return cues;
+  }
+
+  for (const event of srv3Data.events) {
+    if (!event.segs || event.segs.length === 0) {
+      continue;
+    }
+
+    const text = event.segs.map(seg => seg.utf8).join('').trim();
+    if (!text) {
+      continue;
+    }
+
+    cues.push({
+      start: event.tStartMs / 1000, // 转换为秒
+      dur: event.dDurationMs / 1000, // 转换为秒
+      text,
+      lang
+    });
+  }
+
+  return cues;
+};
+
+// 获取语言显示名称
+const getLanguageDisplayName = (langCode: string): string => {
+  const langMap: Record<string, string> = {
+    'zh': '中文',
+    'zh-CN': '中文',
+    'zh-Hans': '中文',
+    'zh-TW': '繁中',
+    'zh-Hant': '繁中',
+    'en': 'English',
+    'ja': '日本語',
+    'ko': '한국어',
+    'es': 'Español',
+    'fr': 'Français',
+    'de': 'Deutsch',
+    'it': 'Italiano',
+    'pt': 'Português',
+    'ru': 'Русский',
+    'ar': 'العربية',
+    'hi': 'हिन्दी'
+  };
+  return langMap[langCode] || langCode.toUpperCase();
+};
+
+// 抓取单个语言的字幕
+const fetchSingleLanguageSubtitle = async (videoId: string, track: CaptionTrack): Promise<MultiLangSubtitleCue[]> => {
+  try {
+    const subtitleData = await retryWithBackoff(() => fetchSubtitleFile(track.baseUrl));
+    return parseSRV3SubtitlesWithLang(subtitleData, track.languageCode);
+  } catch (error) {
+    console.error(`Error fetching subtitle for language ${track.languageCode}:`, error);
+    return [];
+  }
+};
+
+// 合并多语言字幕
+const mergeMultiLanguageSubtitles = (allCues: MultiLangSubtitleCue[]): SubtitleCue[] => {
+  if (allCues.length === 0) return [];
+
+  // 按开始时间排序
+  allCues.sort((a, b) => a.start - b.start);
+
+  const mergedCues: SubtitleCue[] = [];
+  let currentTime = -1;
+  let currentTexts: Map<string, string> = new Map();
+  let currentDuration = 0;
+
+  for (const cue of allCues) {
+    // 如果开始时间相同或接近（0.1秒内），合并到同一个时间点
+    if (Math.abs(cue.start - currentTime) < 0.1) {
+      currentTexts.set(cue.lang, cue.text);
+      currentDuration = Math.max(currentDuration, cue.dur);
+    } else {
+      // 保存之前的合并结果
+      if (currentTexts.size > 0) {
+        const mergedText = Array.from(currentTexts.entries())
+          .map(([lang, text]) => `[${getLanguageDisplayName(lang)}] ${text}`)
+          .join(' | ');
+        
+        mergedCues.push({
+          start: currentTime,
+          dur: currentDuration,
+          text: mergedText
+        });
+      }
+
+      // 开始新的时间点
+      currentTime = cue.start;
+      currentDuration = cue.dur;
+      currentTexts = new Map();
+      currentTexts.set(cue.lang, cue.text);
+    }
+  }
+
+  // 处理最后一个时间点
+  if (currentTexts.size > 0) {
+    const mergedText = Array.from(currentTexts.entries())
+      .map(([lang, text]) => `[${getLanguageDisplayName(lang)}] ${text}`)
+      .join(' | ');
+    
+    mergedCues.push({
+      start: currentTime,
+      dur: currentDuration,
+      text: mergedText
+    });
+  }
+
+  return mergedCues;
+};
+
+// 处理单个视频的多语言字幕抓取
+const fetchVideoSubtitles = async (videoId: string): Promise<SubtitleResult> => {
+  // 使用固定缓存键抓取所有语言
+  const cacheKey = `${videoId}_multilang`;
   const cached = subtitleCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -229,7 +354,8 @@ const fetchVideoSubtitles = async (videoId: string, preferredLangs: string[] = [
     if (!captionTracks || captionTracks.length === 0) {
       const result: SubtitleResult = {
         id: videoId,
-        lang: primaryLang,
+        lang: 'none',
+        languages: [],
         cues: [],
         error: '该视频没有可用的字幕'
       };
@@ -237,50 +363,57 @@ const fetchVideoSubtitles = async (videoId: string, preferredLangs: string[] = [
       return result;
     }
 
-    // 按优先级查找字幕轨道
-    let targetTrack: CaptionTrack | undefined;
-    let selectedLang = primaryLang;
+    // Step 2: 并发抓取所有语言的字幕
+    console.log(`Found ${captionTracks.length} subtitle tracks for ${videoId}:`, captionTracks.map(t => t.languageCode));
     
-    for (const lang of preferredLangs) {
-      targetTrack = captionTracks.find(track => track.languageCode === lang);
-      if (targetTrack) {
-        selectedLang = lang;
-        break;
+    const limit = pLimit(3); // 限制并发数避免过载
+    const subtitlePromises = captionTracks.map(track =>
+      limit(() => fetchSingleLanguageSubtitle(videoId, track))
+    );
+
+    const allSubtitleResults = await Promise.all(subtitlePromises);
+    
+    // Step 3: 合并所有语言的字幕
+    const allCues: MultiLangSubtitleCue[] = [];
+    const availableLanguages: string[] = [];
+    
+    for (let i = 0; i < allSubtitleResults.length; i++) {
+      const cues = allSubtitleResults[i];
+      if (cues.length > 0) {
+        allCues.push(...cues);
+        availableLanguages.push(captionTracks[i].languageCode);
       }
     }
 
-    // 如果没有找到偏好语言，尝试使用第一个可用的字幕
-    if (!targetTrack && captionTracks.length > 0) {
-      targetTrack = captionTracks[0];
-      selectedLang = targetTrack.languageCode;
-    }
-
-    if (!targetTrack) {
-      const availableLangs = captionTracks.map(track => track.languageCode).join(', ');
+    if (allCues.length === 0) {
       const result: SubtitleResult = {
         id: videoId,
-        lang: primaryLang,
+        lang: 'none',
+        languages: captionTracks.map(t => t.languageCode),
         cues: [],
-        error: `未找到偏好语言字幕，可用语言: ${availableLangs}`
+        error: '所有语言的字幕抓取都失败了'
       };
       subtitleCache.set(cacheKey, result);
       return result;
     }
 
-    // Step 2: 抓取字幕文件
-    const subtitleData = await retryWithBackoff(() => fetchSubtitleFile(targetTrack.baseUrl));
-    
-    // Step 3: 解析字幕
-    const cues = parseSRV3Subtitles(subtitleData);
+    // Step 4: 合并多语言字幕
+    const mergedCues = mergeMultiLanguageSubtitles(allCues);
     
     const result: SubtitleResult = {
       id: videoId,
-      lang: selectedLang, // 使用实际选中的语言
-      cues
+      lang: availableLanguages.length === 1 ? availableLanguages[0] : 'multi',
+      languages: availableLanguages,
+      cues: mergedCues
     };
 
     // 缓存结果
     subtitleCache.set(cacheKey, result);
+    console.log(`Successfully merged subtitles for ${videoId}:`, {
+      languages: availableLanguages,
+      totalCues: mergedCues.length
+    });
+    
     return result;
 
   } catch (error) {
@@ -288,7 +421,8 @@ const fetchVideoSubtitles = async (videoId: string, preferredLangs: string[] = [
     
     const result: SubtitleResult = {
       id: videoId,
-      lang: primaryLang,
+      lang: 'error',
+      languages: [],
       cues: [],
       error: error instanceof Error ? error.message : '抓取字幕失败'
     };
@@ -302,18 +436,6 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const videoIds = searchParams.getAll('id');
-    
-    // 解析语言偏好参数
-    const langParam = searchParams.get('lang') || searchParams.get('langs');
-    let preferredLangs: string[];
-    
-    if (langParam) {
-      // 支持逗号分隔的多个语言
-      preferredLangs = langParam.split(',').map(lang => lang.trim());
-    } else {
-      // 默认语言优先级：中文（各种变体）> 英文
-      preferredLangs = ['zh', 'zh-CN', 'zh-Hans', 'zh-TW', 'zh-Hant', 'en'];
-    }
 
     // 验证输入参数
     if (!videoIds || videoIds.length === 0) {
@@ -341,23 +463,24 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 设置并发限制为4
-    const limit = pLimit(4);
+    // 设置并发限制为2（因为每个视频内部还有并发请求）
+    const limit = pLimit(2);
     
     // 并发处理所有视频
     const results = await Promise.all(
       videoIds.map(videoId => 
         limit(async () => {
           try {
-            const result = await fetchVideoSubtitles(videoId, preferredLangs);
-            // 每次请求后随机延迟100-300ms
-            await randomDelay(100, 300);
+            const result = await fetchVideoSubtitles(videoId);
+            // 每次请求后随机延迟200-500ms
+            await randomDelay(200, 500);
             return result;
           } catch (error) {
             console.error(`Error processing video ${videoId}:`, error);
             return {
               id: videoId,
-              lang: preferredLangs[0],
+              lang: 'error',
+              languages: [],
               cues: [],
               error: error instanceof Error ? error.message : '处理失败'
             } as SubtitleResult;
