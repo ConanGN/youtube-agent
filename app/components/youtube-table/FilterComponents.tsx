@@ -97,7 +97,7 @@ export function Filter({ column }: FilterProps) {
               placeholder="最大值"
               className="w-full px-1 py-0.5 border border-gray-300 rounded text-xs h-6"
             />
-            {columnFilterValue && (
+            {columnFilterValue ? (
               <button
                 onClick={() => column.setFilterValue(undefined)}
                 className="text-xs text-gray-500 hover:text-gray-700 self-start px-1 h-4 leading-none"
@@ -105,7 +105,7 @@ export function Filter({ column }: FilterProps) {
               >
                 ✕
               </button>
-            )}
+            ) : null}
           </div>
         ) : (
           // 正常模式：水平排列
@@ -138,14 +138,14 @@ export function Filter({ column }: FilterProps) {
                 className="flex-1 min-w-0 px-2 py-1 border border-gray-300 rounded text-sm"
               />
             </div>
-            {columnFilterValue && (
+            {columnFilterValue ? (
               <button
                 onClick={() => column.setFilterValue(undefined)}
                 className="text-xs text-gray-500 hover:text-gray-700 self-start"
               >
                 清除
               </button>
-            )}
+            ) : null}
           </div>
         )}
       </div>
@@ -170,7 +170,7 @@ export function Filter({ column }: FilterProps) {
             </option>
           ))}
         </select>
-        {isNarrow && columnFilterValue && (
+        {(isNarrow && columnFilterValue) ? (
           <button
             onClick={() => column.setFilterValue(undefined)}
             className="text-xs text-gray-500 hover:text-gray-700 self-start px-1"
@@ -178,7 +178,7 @@ export function Filter({ column }: FilterProps) {
           >
             ✕
           </button>
-        )}
+        ) : null}
       </div>
     )
   }
@@ -202,7 +202,7 @@ export function Filter({ column }: FilterProps) {
           }`}
           list={column.id + 'list'}
         />
-        {columnFilterValue && (
+        {columnFilterValue ? (
           <button
             onClick={() => column.setFilterValue(undefined)}
             className={`absolute right-1 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 ${
@@ -212,7 +212,7 @@ export function Filter({ column }: FilterProps) {
           >
             ✕
           </button>
-        )}
+        ) : null}
       </div>
     </div>
   )

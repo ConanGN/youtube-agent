@@ -13,6 +13,7 @@ export interface SubtitleData {
   languages: string[]  // 包含的所有语言列表
   cues: SubtitleCue[]  // 字幕条目数组（多语言已合并）
   error?: string       // 错误信息
+  rawText?: string     // 用户编辑的原始文本内容
 }
 
 export interface SubtitleBatchRequest {

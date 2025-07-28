@@ -29,7 +29,9 @@ export function ThumbnailEditableCell({
     }
 
     // 更新数据
-    table.options.meta?.updateData(index, id, newValue)
+    if (table.options.meta?.updateData) {
+      table.options.meta.updateData(index, id, newValue)
+    }
   }
 
   // URL验证函数

@@ -45,15 +45,19 @@ export function DynamicCell({ getValue, row, column, table, config }: DynamicCel
     }
 
     // 更新数据
-    table.options.meta?.updateData(row.index, column.id, tempValue)
+    if (table.options.meta?.updateData) {
+      table.options.meta.updateData(row.index, column.id, tempValue)
+    }
     
     // 添加编辑历史
-    table.options.meta?.addEditHistory(
-      row.index,
-      column.id,
-      String(value || ''),
-      String(tempValue || '')
-    )
+    if (table.options.meta?.addEditHistory) {
+      table.options.meta.addEditHistory(
+        row.index,
+        column.id,
+        String(value || ''),
+        String(tempValue || '')
+      )
+    }
 
     setIsEditing(false)
   }, [tempValue, config, table, row.index, column.id, value])

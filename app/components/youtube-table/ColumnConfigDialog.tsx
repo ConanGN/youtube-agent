@@ -675,7 +675,8 @@ export function ColumnConfigDialog({
                           value={formData.formatter?.options?.falseText || '否'}
                           onChange={(e) => updateFormData({ 
                             formatter: { 
-                              ...formData.formatter, 
+                              ...formData.formatter,
+                              type: formData.formatter?.type || 'boolean',
                               options: { ...formData.formatter?.options, falseText: e.target.value }
                             } 
                           })}

@@ -80,7 +80,9 @@ export function EditableCell({
     }
 
     // 更新数据
-    table.options.meta?.updateData(index, id, value)
+    if (table.options.meta?.updateData) {
+      table.options.meta.updateData(index, id, value)
+    }
   }
 
   // 处理弹窗保存
@@ -91,7 +93,9 @@ export function EditableCell({
     }
 
     // 更新数据
-    table.options.meta?.updateData(index, id, newValue)
+    if (table.options.meta?.updateData) {
+      table.options.meta.updateData(index, id, newValue)
+    }
   }
 
   // 处理键盘事件
@@ -245,7 +249,9 @@ export function NumberEditableCell({
     setValue(clampedValue.toString())
     
     if (clampedValue !== initialValue) {
-      table.options.meta?.updateData(index, id, clampedValue)
+      if (table.options.meta?.updateData) {
+        table.options.meta.updateData(index, id, clampedValue)
+      }
     }
   }
 

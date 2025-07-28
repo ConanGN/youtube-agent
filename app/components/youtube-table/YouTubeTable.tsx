@@ -262,7 +262,7 @@ export function YouTubeTable({
             ...item.subtitles,
             rawText: newText // 保存原始编辑文本
           }
-        }
+        } as UnifiedDataItem
       }
       return item
     })
@@ -320,13 +320,14 @@ export function YouTubeTable({
       
       // 调用字幕抓取API
       const response = await fetch(`/api/subtitles?${videoIds.map(id => `id=${id}`).join('&')}`)
-      const results = await response.json()
+      const responseData = await response.json() as { error?: string; results?: any[] }
       
       if (!response.ok) {
-        throw new Error(results.error || '字幕抓取失败')
+        throw new Error(responseData.error || '字幕抓取失败')
       }
       
       // 更新表格数据
+      const results = responseData.results || []
       const finalData = tableData.map(item => {
         const subtitleResult = results.find((result: any) => result.id === item.id)
         if (subtitleResult) {
@@ -691,6 +692,9 @@ export function YouTubeTable({
   return (
     <TableStyleEnhancer>
       <div className={`space-y-4 ${className}`}>
+      {/* 列管理器 */}
+      <ColumnManager dynamicColumns={dynamicColumns} className="mb-4" />
+      
       {/* 表格工具栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-4">
         <div className="flex flex-col space-y-2">
