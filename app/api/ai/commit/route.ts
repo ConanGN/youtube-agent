@@ -224,7 +224,7 @@ async function backupColumnData(
   jobId: string
 ): Promise<DatasetVersion> {
   // 模拟查询原数据
-  const originalData = [
+  const originalData: any[] = [
     // 这里实际项目中应该从数据库查询
     // SELECT id, ${columnId} FROM dataset WHERE id IN (...)
   ];

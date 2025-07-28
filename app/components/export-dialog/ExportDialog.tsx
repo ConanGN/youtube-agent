@@ -80,7 +80,7 @@ export function ExportDialog({
   useEffect(() => {
     fetch('/api/export')
       .then(res => res.json())
-      .then(result => {
+      .then((result: any) => {
         if (result.success) {
           setAvailableColumns(result.availableColumns)
           // 设置默认选中的列
@@ -236,7 +236,7 @@ export function ExportDialog({
           onClose()
         }, 2000)
       } else {
-        const errorData = await response.json()
+        const errorData = await response.json() as any
         throw new Error(errorData.error || '导出失败')
       }
     } catch (error) {

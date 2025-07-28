@@ -706,6 +706,11 @@ export class YouTubeAPIClient {
       videoUrl,
       tags: snippet?.tags || [],
       categoryId: snippet?.categoryId,
+      
+      // 兼容性字段：为GenericDataItem接口提供默认值
+      originalData: videoUrl, // 使用视频URL作为原始数据标识
+      category: 'youtube', // 标记为YouTube数据类型
+      status: 'processed', // 默认为处理完成状态
     }
   }
 

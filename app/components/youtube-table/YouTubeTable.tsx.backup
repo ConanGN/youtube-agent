@@ -22,15 +22,17 @@ import {
   ColumnSizingState,
 } from '@tanstack/react-table'
 import { Zap, AlertCircle, CheckCircle, RefreshCw, X } from 'lucide-react'
-import { YouTubeVideo, EditHistory, UnifiedDataItem, DynamicColumnConfig, COLUMN_TEMPLATES } from '@/types'
+import { YouTubeVideo, EditHistory, UnifiedDataItem, DynamicColumnConfig } from '@/types'
 import { EditableCell, NumberEditableCell } from './EditableCell'
 import { ThumbnailEditableCell } from './ThumbnailEditableCell'
 import { SubtitleEditDialog } from './SubtitleEditDialog'
 import { Filter, GlobalFilter, ColumnVisibility, AdvancedFilterPanel } from './FilterComponents'
-import { ColumnManager } from './ColumnManager'
+// import { ColumnManager } from './ColumnManager'
+// import { ColumnConfigDialog } from './ColumnConfigDialog'
+// import { DynamicCell, DynamicHeader } from './DynamicColumn'
 import AIPromptDrawer, { type AIBatchConfig } from '@/app/components/ai/AIPromptDrawer'
 import { useAIBatch, BatchStatus } from '@/app/hooks/useAIBatch'
-import { useDynamicColumns } from '@/hooks/useDynamicColumns'
+// import { useDynamicColumns } from '@/hooks/useDynamicColumns'
 
 // 复选框组件
 interface IndeterminateCheckboxProps {
@@ -123,8 +125,9 @@ export function YouTubeTable({
   })
   const [showAdvancedFilter, setShowAdvancedFilter] = useState(false)
   
-  // 客户端挂载状态 - 用于解决Hydration不匹配问题
-  const [isMounted, setIsMounted] = useState(false)
+  // 动态列系统状态
+  const [showColumnConfigDialog, setShowColumnConfigDialog] = useState(false)
+  const [editingColumnConfig, setEditingColumnConfig] = useState<DynamicColumnConfig | null>(null)
   
   // AI批处理状态
   const [showAIDrawer, setShowAIDrawer] = useState(false)
@@ -163,54 +166,17 @@ export function YouTubeTable({
   } = useAIBatch()
 
   // 动态列管理Hook
-  const dynamicColumns = useDynamicColumns({
-    initialData: data,
-    autoInferColumns: false, // 暂时禁用自动推断来测试
-    onColumnChange: (configs) => {
-      console.log('列配置已更新:', configs)
-    },
-    onError: (error) => {
-      console.error('动态列系统错误:', error)
-    }
-  })
-
-  // 设置客户端挂载状态
-  React.useEffect(() => {
-    setIsMounted(true)
-  }, [])
-
-  // 临时手动添加基础列配置（用于测试数据获取功能）
-  React.useEffect(() => {
-    if (isMounted && data.length > 0 && dynamicColumns.columnConfigs.length === 0) {
-      console.log('手动添加基础列配置...')
-      
-      // 添加基础YouTube列 
-      const basicColumns = [
-        { key: 'thumbnail', title: '缩略图', width: 80, templateId: 'image' },
-        { key: 'title', title: '标题', width: 200, templateId: 'basic-text' },
-        { key: 'channelTitle', title: '频道', width: 120, templateId: 'basic-text' },
-        { key: 'publishedAt', title: '发布时间', width: 100, templateId: 'date' },
-        { key: 'viewCount', title: '观看数', width: 100, templateId: 'number' },
-        { key: 'description', title: '描述', width: 150, templateId: 'long-text' }
-      ]
-
-      basicColumns.forEach((col, index) => {
-        if (data[0].hasOwnProperty(col.key)) {
-          // 查找对应的模板
-          const template = COLUMN_TEMPLATES.find(t => t.id === col.templateId)
-          if (template) {
-            dynamicColumns.addColumn(template, {
-              title: col.title,
-              accessorKey: col.key,
-              width: col.width,
-              visible: true,
-              position: index
-            })
-          }
-        }
-      })
-    }
-  }, [isMounted, data, dynamicColumns.columnConfigs.length, dynamicColumns.addColumn])
+  // const dynamicColumns = useDynamicColumns({
+  //   initialData: data,
+  //   autoInferColumns: false, // 我们将手动管理系统列
+  //   onColumnChange: (configs) => {
+  //     // 当列配置改变时可以执行额外操作
+  //     console.log('列配置已更新:', configs)
+  //   },
+  //   onError: (error) => {
+  //     console.error('动态列系统错误:', error)
+  //   }
+  // })
 
   // 防止自动重置页码
   const [autoResetPageIndex, skipAutoResetPageIndex] = useSkipper()
@@ -230,6 +196,42 @@ export function YouTubeTable({
       return `${index + 1}. [${startTime} - ${endTime}] ${cue.text}`
     }).join('\n')
   }, [formatTime])
+
+  // 列配置弹窗处理函数
+  const handleOpenColumnConfig = (config?: DynamicColumnConfig) => {
+    setEditingColumnConfig(config || null)
+    setShowColumnConfigDialog(true)
+  }
+
+  const handleCloseColumnConfig = () => {
+    setEditingColumnConfig(null)
+    setShowColumnConfigDialog(false)
+  }
+
+  const handleSaveColumnConfig = (configUpdates: Partial<DynamicColumnConfig>) => {
+    if (editingColumnConfig) {
+      // 编辑现有列
+      dynamicColumns.updateColumn(editingColumnConfig.id, configUpdates)
+    } else {
+      // 创建新列
+      try {
+        const template = dynamicColumns.templates.find(t => t.config.dataType === configUpdates.dataType)
+        if (template) {
+          dynamicColumns.addColumn(template, configUpdates)
+        } else {
+          // 使用默认文本模板
+          const defaultTemplate = dynamicColumns.templates.find(t => t.id === 'text-basic')
+          if (defaultTemplate) {
+            dynamicColumns.addColumn(defaultTemplate, configUpdates)
+          }
+        }
+      } catch (error) {
+        console.error('创建列失败:', error)
+        alert(`创建列失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      }
+    }
+    handleCloseColumnConfig()
+  }
 
   // 字幕编辑相关函数
   const handleOpenSubtitleEdit = (videoId: string, subtitles: any) => {
@@ -379,34 +381,74 @@ export function YouTubeTable({
   React.useEffect(() => {
     setTableData(data)
     
-    // 根据数据类型动态调整列可见性
-    if (data.length > 0) {
+    // 初始化系统列（如果还没有列配置）
+    if (dynamicColumns.columnConfigs.length === 0 && data.length > 0) {
+      // 创建系统列配置
+      const systemColumns = [
+        { id: 'system_select', title: '选择', dataType: 'boolean' as const, accessorKey: '_select', width: 50 },
+        { id: 'system_index', title: '序号', dataType: 'number' as const, accessorKey: '_index', width: 50 },
+        { id: 'thumbnail', title: '缩略图', dataType: 'image' as const, accessorKey: 'thumbnail', width: 80 },
+        { id: 'title', title: '标题', dataType: 'text' as const, accessorKey: 'title', width: 200 },
+        { id: 'channelTitle', title: '频道/分类', dataType: 'text' as const, accessorKey: 'channelTitle', width: 120 },
+        { id: 'publishedAt', title: '发布时间', dataType: 'text' as const, accessorKey: 'publishedAt', width: 120 },
+        { id: 'description', title: '描述', dataType: 'longtext' as const, accessorKey: 'description', width: 200 },
+        { id: 'subtitles', title: '字幕', dataType: 'longtext' as const, accessorKey: 'subtitles', width: 200 },
+        { id: 'system_actions', title: '操作', dataType: 'text' as const, accessorKey: '_actions', width: 100 },
+      ]
+
+      // 根据数据类型动态添加列
       const hasYouTubeData = data.some(item => item.videoUrl)
       const hasCSVData = data.some(item => (item as any).originalData && !item.videoUrl)
-      
-      setColumnVisibility(prev => ({
-        ...prev,
-        // 始终显示的基本列
-        select: true,
-        index: true, // 序号列始终显示
-        thumbnail: true,
-        title: true,
-        channelTitle: true,
-        publishedAt: true,
-        subtitles: true, // 字幕列始终显示
-        // YouTube特有列
-        viewCount: hasYouTubeData,
-        likeCount: hasYouTubeData,
-        duration: hasYouTubeData,
-        // CSV数据列
-        originalData: hasCSVData,
-      }))
+
+      if (hasYouTubeData) {
+        systemColumns.splice(-1, 0, // 在操作列之前插入
+          { id: 'viewCount', title: '播放量', dataType: 'number' as const, accessorKey: 'viewCount', width: 100 },
+          { id: 'likeCount', title: '点赞量', dataType: 'number' as const, accessorKey: 'likeCount', width: 100 },
+          { id: 'duration', title: '时长', dataType: 'text' as const, accessorKey: 'duration', width: 80 }
+        )
+      }
+
+      if (hasCSVData) {
+        systemColumns.splice(-1, 0, // 在操作列之前插入
+          { id: 'originalData', title: '原始数据', dataType: 'longtext' as const, accessorKey: 'originalData', width: 150 }
+        )
+      }
+
+      // 批量添加系统列
+      systemColumns.forEach((col, index) => {
+        try {
+          const template = dynamicColumns.templates.find(t => t.config.dataType === col.dataType) || 
+                          dynamicColumns.templates.find(t => t.id === 'text-basic')
+          if (template) {
+            dynamicColumns.addColumn(template, {
+              ...col,
+              isSystemColumn: true,
+              isUserColumn: false,
+              visible: true,
+              position: index,
+              features: {
+                editable: !['system_select', 'system_index', 'system_actions'].includes(col.id),
+                sortable: !['system_select', 'system_actions', 'thumbnail'].includes(col.id),
+                filterable: !['system_select', 'system_index', 'system_actions', 'thumbnail'].includes(col.id),
+                resizable: true,
+                pinnable: false,
+                groupable: !['system_select', 'system_actions', 'thumbnail'].includes(col.id),
+                aiProcessable: !['system_select', 'system_index', 'system_actions'].includes(col.id),
+                exportable: !['system_select', 'system_actions'].includes(col.id),
+                searchable: !['system_select', 'system_index', 'system_actions', 'thumbnail'].includes(col.id),
+              }
+            })
+          }
+        } catch (error) {
+          console.warn(`初始化系统列 ${col.id} 失败:`, error)
+        }
+      })
     }
     
     // 当数据更新时，清除所有筛选器避免数据不一致
     setColumnFilters([])
     setGlobalFilter('')
-  }, [data])
+  }, [data, dynamicColumns])
 
   // 通知选择变化
   React.useEffect(() => {
@@ -414,55 +456,309 @@ export function YouTubeTable({
     onSelectionChange?.(selectedIds)
   }, [rowSelection, onSelectionChange])
 
-  // 使用动态列系统的列定义
+  // 动态列定义
   const columns = useMemo<ColumnDef<UnifiedDataItem>[]>(() => {
-    // 获取动态列
-    const dynamicCols = dynamicColumns.tableColumns
-    
-    // 添加系统列（选择列和序号列）到动态列的前面
-    const systemColumns: ColumnDef<UnifiedDataItem>[] = [
-      // 选择列
-      {
-        id: 'select',
-        header: ({ table }) => (
-          <IndeterminateCheckbox
-            checked={table.getIsAllRowsSelected()}
-            indeterminate={table.getIsSomeRowsSelected()}
-            onChange={table.getToggleAllRowsSelectedHandler()}
-          />
-        ),
-        cell: ({ row }) => (
-          <div className="px-1">
-            <IndeterminateCheckbox
-              checked={row.getIsSelected()}
-              disabled={!row.getCanSelect()}
-              indeterminate={row.getIsSomeSelected()}
-              onChange={row.getToggleSelectedHandler()}
-            />
-          </div>
-        ),
-        size: 50,
-        enableResizing: false,
-      },
-      // 序号列
-      {
-        id: 'index',
-        header: '序号',
-        cell: ({ row }) => (
-          <div className="text-center text-gray-600 font-medium">
-            {row.index + 1}
-          </div>
-        ),
-        size: 50,
-        enableResizing: false,
-        enableSorting: false,
-        enableColumnFilter: false,
-      },
-    ]
-    
-    // 合并系统列和动态列
-    return [...systemColumns, ...dynamicCols]
-  }, [dynamicColumns.tableColumns])
+    // 使用动态列系统生成的列定义
+    const baseColumns = dynamicColumns.tableColumns
+
+    // 为特殊列添加自定义渲染器
+    return baseColumns.map(column => {
+      const columnId = column.id as string
+      const config = dynamicColumns.columnConfigs.find(c => c.id === columnId)
+
+      // 系统列的特殊处理
+      switch (columnId) {
+        case 'system_select':
+          return {
+            ...column,
+            header: ({ table }) => (
+              <IndeterminateCheckbox
+                checked={table.getIsAllRowsSelected()}
+                indeterminate={table.getIsSomeRowsSelected()}
+                onChange={table.getToggleAllRowsSelectedHandler()}
+              />
+            ),
+            cell: ({ row }) => (
+              <div className="px-1">
+                <IndeterminateCheckbox
+                  checked={row.getIsSelected()}
+                  disabled={!row.getCanSelect()}
+                  indeterminate={row.getIsSomeSelected()}
+                  onChange={row.getToggleSelectedHandler()}
+                />
+              </div>
+            ),
+          }
+
+        case 'system_index':
+          return {
+            ...column,
+            cell: ({ row }) => (
+              <div className="text-center text-gray-600 font-medium">
+                {row.index + 1}
+              </div>
+            ),
+          }
+
+        case 'thumbnail':
+          return {
+            ...column,
+            cell: (props) => <ThumbnailEditableCell {...props} />,
+          }
+
+        case 'title':
+          return {
+            ...column,
+            cell: (props) => (
+              <EditableCell
+                {...props}
+                placeholder="输入标题"
+                validator={(value) => value.length > 0 || '标题不能为空'}
+              />
+            ),
+          }
+
+        case 'channelTitle':
+          return {
+            ...column,
+            cell: (props) => (
+              <EditableCell
+                {...props}
+                placeholder="输入频道名称或分类"
+              />
+            ),
+          }
+
+        case 'publishedAt':
+          return {
+            ...column,
+            cell: (props) => (
+              <EditableCell
+                {...props}
+                placeholder="输入发布时间"
+                validator={(value) => {
+                  if (!value) return true
+                  const date = new Date(value)
+                  return !isNaN(date.getTime()) || '请输入有效的日期格式'
+                }}
+              />
+            ),
+          }
+
+        case 'originalData':
+          return {
+            ...column,
+            cell: (props) => {
+              if (props.row.original.videoUrl) {
+                return <div className="p-1 text-center text-gray-400">-</div>
+              }
+              return (
+                <EditableCell
+                  {...props}
+                  placeholder="输入原始数据"
+                  isLongText={true}
+                />
+              )
+            },
+          }
+
+        case 'viewCount':
+        case 'likeCount':
+          return {
+            ...column,
+            cell: (props) => {
+              const value = props.getValue()
+              if (value === undefined || value === null) {
+                return <div className="p-1 text-center text-gray-400">-</div>
+              }
+              return <NumberEditableCell {...props} format="compact" />
+            },
+          }
+
+        case 'duration':
+          return {
+            ...column,
+            cell: (props) => (
+              <EditableCell
+                {...props}
+                placeholder="输入时长 (如: 10:30)"
+                validator={(value) => {
+                  if (!value) return true
+                  const pattern = /^(\d{1,2}:)?[0-5]?\d:[0-5]\d$|^\d{1,2}:[0-5]\d$/
+                  return pattern.test(value) || '请输入有效的时长格式 (如: 10:30)'
+                }}
+              />
+            ),
+          }
+
+        case 'description':
+          return {
+            ...column,
+            cell: (props) => (
+              <EditableCell
+                {...props}
+                isLongText={true}
+                placeholder="输入描述"
+              />
+            ),
+          }
+
+        case 'subtitles':
+          return {
+            ...column,
+            header: () => (
+              <div className="flex items-center space-x-2">
+                <span>字幕</span>
+                <button
+                  onClick={handleBatchSubtitleFetch}
+                  disabled={!hasSelectedVideos || subtitleFetching}
+                  className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-1"
+                  title="批量抓取选中视频的字幕（最多10个）"
+                >
+                  {subtitleFetching ? (
+                    <>
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      <span>抓取中</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📝</span>
+                      <span>抓取字幕</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            ),
+            cell: (props) => {
+              const video = props.row.original
+              const subtitles = video.subtitles
+              const status = video.subtitlesStatus
+              const error = video.subtitlesError
+              
+              return (
+                <div className="relative">
+                  {status === 'loading' && (
+                    <div className="flex items-center space-x-2 p-2 text-sm text-blue-600">
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>加载中...</span>
+                    </div>
+                  )}
+                  
+                  {status === 'error' && (
+                    <div className="flex items-center space-x-2 p-2 text-sm text-red-600">
+                      <AlertCircle className="w-4 h-4" />
+                      <span title={error}>{error?.substring(0, 30)}...</span>
+                    </div>
+                  )}
+                  
+                  {status === 'empty' && (
+                    <div className="p-2 text-sm text-gray-500">
+                      无字幕
+                    </div>
+                  )}
+                  
+                  {status === 'success' && subtitles && (
+                    <div 
+                      className="bg-green-50 border-green-200 p-2 rounded cursor-pointer hover:bg-green-100"
+                      onClick={() => handleOpenSubtitleEdit(video.id, subtitles)}
+                      title="点击编辑字幕内容"
+                    >
+                      <div className="text-sm text-gray-700 whitespace-pre-line max-h-32 overflow-y-auto">
+                        {subtitles.rawText || formatSubtitles(subtitles.cues)}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {!status && (
+                    <div className="p-2 text-sm text-gray-400">
+                      点击"抓取字幕"获取
+                    </div>
+                  )}
+                </div>
+              )
+            },
+          }
+
+        case 'system_actions':
+          return {
+            ...column,
+            cell: ({ row }) => (
+              <div className="flex space-x-1">
+                {row.original.videoUrl ? (
+                  <>
+                    <a
+                      href={row.original.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2 py-1 text-xs bg-blue-100 text-blue-600 rounded hover:bg-blue-200"
+                    >
+                      查看
+                    </a>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(row.original.videoUrl || '')
+                      }}
+                      className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                    >
+                      复制
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => {
+                      const originalData = (row.original as any).originalData
+                      if (originalData) {
+                        navigator.clipboard.writeText(originalData)
+                      }
+                    }}
+                    className="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded hover:bg-gray-200"
+                  >
+                    复制数据
+                  </button>
+                )}
+              </div>
+            ),
+          }
+
+        default:
+          // AI列和用户自定义列使用动态渲染器
+          if (columnId.includes('_ai_') || config?.isUserColumn) {
+            return {
+              ...column,
+              cell: (props) => {
+                if (config) {
+                  return <DynamicCell {...props} config={config} />
+                }
+                return column.cell ? column.cell(props) : props.getValue()
+              },
+              header: (props) => {
+                if (config) {
+                  return (
+                    <DynamicHeader 
+                      config={config}
+                      onConfigChange={(updates) => dynamicColumns.updateColumn(config.id, updates)}
+                      onRemove={config.isUserColumn ? () => dynamicColumns.removeColumn(config.id) : undefined}
+                    >
+                      {column.header ? (typeof column.header === 'function' ? column.header(props) : column.header) : config.title}
+                    </DynamicHeader>
+                  )
+                }
+                return column.header ? (typeof column.header === 'function' ? column.header(props) : column.header) : columnId
+              },
+            }
+          }
+
+          // 默认渲染
+          return column
+      }
+    })
+  }, [
+    dynamicColumns.tableColumns, 
+    dynamicColumns.columnConfigs, 
+    hasSelectedVideos, 
+    subtitleFetching, 
+    formatSubtitles
+  ])
 
   // 数据更新函数
   const updateData = React.useCallback(
@@ -525,7 +821,17 @@ export function YouTubeTable({
     onColumnFiltersChange: setColumnFilters,
     onGlobalFilterChange: setGlobalFilter,
     onSortingChange: setSorting,
-    onColumnVisibilityChange: setColumnVisibility,
+    onColumnVisibilityChange: (updater) => {
+      const newVisibility = typeof updater === 'function' ? updater(columnVisibility) : updater
+      setColumnVisibility(newVisibility)
+      // 同步到动态列系统
+      Object.entries(newVisibility).forEach(([columnId, visible]) => {
+        const config = dynamicColumns.columnConfigs.find(c => c.id === columnId)
+        if (config && config.visible !== visible) {
+          dynamicColumns.updateColumn(columnId, { visible })
+        }
+      })
+    },
     onColumnSizingChange: setColumnSizing,
     enableColumnResizing: true,
     columnResizeMode: 'onChange',
@@ -560,7 +866,10 @@ export function YouTubeTable({
       columnFilters,
       globalFilter,
       sorting,
-      columnVisibility,
+      columnVisibility: dynamicColumns.visibleConfigs.reduce((acc, config) => {
+        acc[config.id] = config.visible
+        return acc
+      }, {} as VisibilityState),
       rowSelection,
       columnSizing,
     },
@@ -669,7 +978,7 @@ export function YouTubeTable({
         [columnKey]: true,
       }))
     })
-  }, [selectedColumnForAI, getProcessingInfo, getNewColumnKey, startBatch])
+  }, [selectedColumnForAI, getProcessingInfo, startBatch])
   
   // 同步数据变化到父组件
   React.useEffect(() => {
@@ -688,18 +997,25 @@ export function YouTubeTable({
   return (
     <div className={`space-y-4 ${className}`}>
       {/* 表格工具栏 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-4">
-        <div className="flex flex-col space-y-2">
-          <GlobalFilter
-            globalFilter={globalFilter}
-            setGlobalFilter={setGlobalFilter}
-          />
-          <div className="text-xs text-gray-400">
-            💡 提示：将鼠标悬停在列边界上可拖拽调节列宽
-          </div>
-        </div>
+      <div className="flex flex-col space-y-4">
+        {/* 列管理器 */}
+        {/* <ColumnManager 
+          dynamicColumns={dynamicColumns}
+          className="border-b border-gray-200 pb-4"
+        /> */}
         
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-4">
+          <div className="flex flex-col space-y-2">
+            <GlobalFilter
+              globalFilter={globalFilter}
+              setGlobalFilter={setGlobalFilter}
+            />
+            <div className="text-xs text-gray-400">
+              💡 提示：将鼠标悬停在列边界上可拖拽调节列宽
+            </div>
+          </div>
+          
+          <div className="flex items-center space-x-2">
           {/* AI批处理状态显示 */}
           {batchState.status !== BatchStatus.IDLE && (
             <div className="flex items-center space-x-2 px-3 py-2 bg-blue-50 rounded-lg">
@@ -991,6 +1307,15 @@ export function YouTubeTable({
         value={subtitleEditDialog.currentSubtitles}
         onSave={handleSaveSubtitleEdit}
       />
+
+      {/* 列配置弹窗 */}
+      {/* <ColumnConfigDialog
+        isOpen={showColumnConfigDialog}
+        onClose={handleCloseColumnConfig}
+        config={editingColumnConfig}
+        onSave={handleSaveColumnConfig}
+        isEdit={!!editingColumnConfig}
+      /> */}
     </div>
   )
 }

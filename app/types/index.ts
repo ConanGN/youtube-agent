@@ -44,9 +44,26 @@ export type {
   VirtualizationConfig,
   TablePerformanceConfig,
   TableTheme,
+  // 新增：列配置系统类型
+  ColumnDataType,
+  ValidationRule,
+  ColumnFormatter,
+  EditorConfig,
+  ColumnFeatures,
+  DynamicColumnConfig,
+  ColumnConfigManager,
+  ColumnTemplate,
+  FeatureModule,
+  ExtendedTableState,
+  ColumnManagementAction,
+  ColumnManagementEvent,
 } from './table'
 
-export { DEFAULT_YOUTUBE_COLUMNS, DEFAULT_TABLE_THEME } from './table'
+export { 
+  DEFAULT_YOUTUBE_COLUMNS, 
+  DEFAULT_TABLE_THEME,
+  COLUMN_TEMPLATES, // 新增：导出列模板
+} from './table'
 
 // AI相关类型
 export type {
@@ -162,3 +179,77 @@ export interface EnvVars {
   NODE_ENV: 'development' | 'production' | 'test'
   NEXT_PUBLIC_APP_URL: string
 }
+
+// 验证规则模板
+export const VALIDATION_TEMPLATES: ValidationRule[] = [
+  {
+    type: 'required',
+    message: '此字段为必填项'
+  },
+  {
+    type: 'min',
+    value: 1,
+    message: '最小长度为1'
+  },
+  {
+    type: 'max',
+    value: 100,
+    message: '最大长度为100'
+  },
+  {
+    type: 'pattern',
+    value: '^[a-zA-Z0-9]+$',
+    message: '只能包含字母和数字'
+  },
+  {
+    type: 'url',
+    message: '请输入有效的URL'
+  },
+  {
+    type: 'email',
+    message: '请输入有效的邮箱地址'
+  }
+]
+
+// 格式化器模板
+export const FORMATTER_TEMPLATES: ColumnFormatter[] = [
+  {
+    type: 'text',
+    options: {}
+  },
+  {
+    type: 'number',
+    options: {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    }
+  },
+  {
+    type: 'currency',
+    options: {
+      currency: 'CNY',
+      style: 'currency'
+    }
+  },
+  {
+    type: 'percentage',
+    options: {
+      style: 'percent',
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 2
+    }
+  },
+  {
+    type: 'date',
+    options: {
+      dateStyle: 'short'
+    }
+  },
+  {
+    type: 'boolean',
+    options: {
+      trueText: '是',
+      falseText: '否'
+    }
+  }
+]

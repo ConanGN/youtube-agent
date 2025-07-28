@@ -109,7 +109,7 @@ export function ChannelInput({
       return
     }
     
-    onSubmit(finalChannelId, finalChannelUrl, {
+    onSubmit(finalChannelId || '', finalChannelUrl, {
       maxResults,
       order: sortOrder,
     })

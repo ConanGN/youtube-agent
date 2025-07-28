@@ -53,6 +53,11 @@ export interface YouTubeVideo {
   translatedTitle?: string      // AI翻译标题
   isEdited?: boolean            // 编辑状态标记
   editHistory?: EditHistory[]   // 编辑历史
+  
+  // 兼容性字段（与GenericDataItem保持一致）
+  originalData?: string         // 原始数据JSON字符串
+  category?: string             // 数据分类
+  status?: 'processed' | 'pending' // 处理状态
 }
 
 export interface EditHistory {

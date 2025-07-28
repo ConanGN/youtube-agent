@@ -44,7 +44,7 @@ async function callSiliconFlowAPI(
     throw new Error(`SiliconFlow API错误 (${response.status}): ${errorData}`);
   }
 
-  const data = await response.json();
+  const data = await response.json() as any;
   const message = data.choices?.[0]?.message;
   
   if (!message?.content) {
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
             originalContent = video.title
             break
           case 'summarize_description':
-            userPrompt = template.user(video.description)
+            userPrompt = (template as any).user(video.description, '')
             originalContent = video.description
             break
           case 'translate_title':

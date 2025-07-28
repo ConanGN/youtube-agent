@@ -82,7 +82,9 @@ class LRUCache<T> {
     // 如果达到最大容量，删除最旧的项
     if (this.cache.size >= this.maxSize) {
       const firstKey = this.cache.keys().next().value;
-      this.cache.delete(firstKey);
+      if (firstKey) {
+        this.cache.delete(firstKey);
+      }
     }
 
     this.cache.set(key, { value, timestamp: Date.now() });
