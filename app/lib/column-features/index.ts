@@ -310,7 +310,7 @@ export function inferColumnConfig(data: any[], columnName: string): Partial<Dyna
       width: 80,
       minWidth: 60,
       features: {
-        editable: false,
+        editable: true, // 修改为可编辑
         sortable: true,
         filterable: true,
         resizable: true,

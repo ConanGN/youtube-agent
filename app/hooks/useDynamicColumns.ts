@@ -15,6 +15,7 @@ import {
 } from '@/types'
 import { DynamicColumnConfigManager } from '@/lib/column-features/ColumnConfigManager'
 import { FeatureModuleManager, inferColumnConfig } from '@/lib/column-features'
+import { TruncatedTextCell, shouldTruncateText, getOptimalTruncateLength } from '@/components/cells/TruncatedTextCell'
 
 // Hook返回类型
 export interface UseDynamicColumnsReturn {
@@ -272,6 +273,20 @@ export function useDynamicColumns(options: UseDynamicColumnsOptions = {}): UseDy
                 // 更新数据的逻辑
                 table.options.meta?.updateData(row.index, column.id, newValue)
               }
+            })
+          }
+          
+          // 对所有可编辑的列使用自适应编辑组件
+          if (config.features.editable && !config.id.startsWith('system_')) {
+            return React.createElement(TruncatedTextCell, {
+              value,
+              config,
+              row: row.original,
+              onChange: (newValue: any) => {
+                table.options.meta?.updateData(row.index, column.id, newValue)
+              },
+              maxLength: getOptimalTruncateLength(config.dataType, config.width),
+              showTooltip: true
             })
           }
           

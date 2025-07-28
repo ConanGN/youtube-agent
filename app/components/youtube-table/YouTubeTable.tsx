@@ -28,6 +28,7 @@ import { ThumbnailEditableCell } from './ThumbnailEditableCell'
 import { SubtitleEditDialog } from './SubtitleEditDialog'
 import { Filter, GlobalFilter, ColumnVisibility, AdvancedFilterPanel } from './FilterComponents'
 import { ColumnManager } from './ColumnManager'
+import { TableStyleEnhancer } from '../table/TableStyleEnhancer'
 import AIPromptDrawer, { type AIBatchConfig } from '@/app/components/ai/AIPromptDrawer'
 import { useAIBatch, BatchStatus } from '@/app/hooks/useAIBatch'
 import { useDynamicColumns } from '@/hooks/useDynamicColumns'
@@ -184,14 +185,14 @@ export function YouTubeTable({
     if (isMounted && data.length > 0 && dynamicColumns.columnConfigs.length === 0) {
       console.log('手动添加基础列配置...')
       
-      // 添加基础YouTube列 
+      // 添加基础YouTube列 - 优化列宽设置
       const basicColumns = [
-        { key: 'thumbnail', title: '缩略图', width: 80, templateId: 'image' },
-        { key: 'title', title: '标题', width: 200, templateId: 'basic-text' },
-        { key: 'channelTitle', title: '频道', width: 120, templateId: 'basic-text' },
-        { key: 'publishedAt', title: '发布时间', width: 100, templateId: 'date' },
-        { key: 'viewCount', title: '观看数', width: 100, templateId: 'number' },
-        { key: 'description', title: '描述', width: 150, templateId: 'long-text' }
+        { key: 'thumbnail', title: '缩略图', width: 80, minWidth: 60, maxWidth: 120, templateId: 'image' },
+        { key: 'title', title: '标题', width: 300, minWidth: 200, maxWidth: 500, templateId: 'basic-text' },
+        { key: 'channelTitle', title: '频道', width: 140, minWidth: 100, maxWidth: 200, templateId: 'basic-text' },
+        { key: 'publishedAt', title: '发布时间', width: 110, minWidth: 90, maxWidth: 150, templateId: 'date' },
+        { key: 'viewCount', title: '观看数', width: 100, minWidth: 80, maxWidth: 120, templateId: 'number' },
+        { key: 'description', title: '描述', width: 250, minWidth: 150, maxWidth: 400, templateId: 'long-text' }
       ]
 
       basicColumns.forEach((col, index) => {
@@ -203,6 +204,8 @@ export function YouTubeTable({
               title: col.title,
               accessorKey: col.key,
               width: col.width,
+              minWidth: col.minWidth,
+              maxWidth: col.maxWidth,
               visible: true,
               position: index
             })
@@ -686,7 +689,8 @@ export function YouTubeTable({
   }
 
   return (
-    <div className={`space-y-4 ${className}`}>
+    <TableStyleEnhancer>
+      <div className={`space-y-4 ${className}`}>
       {/* 表格工具栏 */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-4">
         <div className="flex flex-col space-y-2">
@@ -991,6 +995,7 @@ export function YouTubeTable({
         value={subtitleEditDialog.currentSubtitles}
         onSave={handleSaveSubtitleEdit}
       />
-    </div>
+      </div>
+    </TableStyleEnhancer>
   )
 }
