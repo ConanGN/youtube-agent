@@ -16,16 +16,38 @@ import {
 } from '@/lib/ai/limits';
 import { SILICONFLOW_MODELS } from '@/lib/ai/config';
 
+// 列信息接口
+export interface ColumnInfo {
+  id: string;
+  title: string;
+  subtitle?: string; // 用户自定义副标题
+  dataType: string;
+  isSystemColumn: boolean;
+  accessorKey: string; // 实际的数据字段名
+}
+
+// 行数据接口
+export interface RowData {
+  rowId: string;
+  rowIndex: number;
+  data: Record<string, any>;
+}
+
 // 抽屉props接口
 export interface AIPromptDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (config: AIBatchConfig) => void;
-  columnId: string;
+  columnId: string;        // 目标列（写入结果的列）
   columnName: string;
   dataCount: number;
-  sampleData: string[];
-  // 新增：选中行相关信息
+  sampleData: string[];    // 保持兼容性，后续会被替代
+  
+  // 新增：数据源列选择功能
+  availableColumns: ColumnInfo[];  // 可选择的数据源列
+  selectedRows: RowData[];         // 选中的行数据
+  
+  // 现有：选中行相关信息
   selectedRowCount?: number;
   filteredRowCount?: number;
   totalRowCount?: number;
@@ -41,6 +63,8 @@ export interface AIBatchConfig {
   // 新增：写入目标选项
   writeTarget: 'virtual' | 'overwrite' | 'append';
   processingScope?: 'selected' | 'filtered' | 'all';
+  // 新增：数据源列ID
+  sourceColumnId: string;
 }
 
 // 从SiliconFlow配置生成可用模型列表
@@ -57,11 +81,31 @@ export default function AIPromptDrawer({
   columnName,
   dataCount,
   sampleData,
+  // 新增属性
+  availableColumns = [],
+  selectedRows = [],
+  // 现有属性
   selectedRowCount = 0,
   filteredRowCount,
   totalRowCount,
   processingScope = 'all',
 }: AIPromptDrawerProps) {
+  
+  // 调试：打印接收到的props
+  React.useEffect(() => {
+    if (isOpen && process.env.NODE_ENV === 'development') {
+      console.log('=== AIPromptDrawer Props Debug ===');
+      console.log('availableColumns:', availableColumns);
+      console.log('selectedRows:', selectedRows);
+      console.log('selectedRows.length:', selectedRows.length);
+      console.log('columnId:', columnId);
+      console.log('columnName:', columnName);
+      if (selectedRows.length > 0) {
+        console.log('First row data:', selectedRows[0]);
+        console.log('First row data keys:', Object.keys(selectedRows[0].data || {}));
+      }
+    }
+  }, [isOpen, availableColumns, selectedRows, columnId, columnName]);
   // 状态管理
   const [model, setModel] = useState(AVAILABLE_MODELS[0].value);
   const [promptTemplate, setPromptTemplate] = useState('');
@@ -70,6 +114,132 @@ export default function AIPromptDrawer({
   const [selectedPreset, setSelectedPreset] = useState<string>('summary'); // 默认选择摘要模板
   // 新增：写入目标选择
   const [writeTarget, setWriteTarget] = useState<'virtual' | 'overwrite' | 'append'>('virtual');
+  // 新增：数据源列选择状态，默认为目标列（保持向后兼容）
+  const [sourceColumnId, setSourceColumnId] = useState<string>(columnId);
+  
+  // 新增：预览数据状态
+  const [previewData, setPreviewData] = useState<Array<{
+    rowId: string;
+    rowIndex: number;
+    content: string;
+    isEmpty: boolean;
+  }>>([]);
+
+  // 当目标列改变时，同步更新数据源列（保持向后兼容）
+  React.useEffect(() => {
+    setSourceColumnId(columnId);
+  }, [columnId]);
+
+  // 计算预览数据的函数
+  const calculatePreviewData = React.useCallback(() => {
+    if (!sourceColumnId || !selectedRows.length) {
+      return [];
+    }
+    
+    return selectedRows.map((row) => {
+      // 调试信息：输出关键数据结构（仅在开发环境）
+      if (process.env.NODE_ENV === 'development') {
+        console.log('DEBUG - calculatePreviewData:', {
+          sourceColumnId,
+          rowId: row.rowId,
+          availableDataKeys: Object.keys(row.data || {}),
+          sourceColumnValue: row.data[sourceColumnId]
+        });
+      }
+      
+      // 尝试多种方式获取数据
+      let content = '';
+      
+      // 首先查找对应的列配置以获取accessorKey
+      const columnConfig = availableColumns.find(col => col.id === sourceColumnId);
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`DEBUG - Column config found for ${sourceColumnId}:`, columnConfig);
+      }
+      
+      // 构建尝试的键列表（按优先级排序）
+      const keysToTry = [];
+      
+      // 1. 优先使用列配置中的accessorKey
+      if (columnConfig && columnConfig.accessorKey) {
+        keysToTry.push(columnConfig.accessorKey);
+      }
+      
+      // 2. 尝试使用sourceColumnId直接访问
+      keysToTry.push(sourceColumnId);
+      
+      // 3. 基于列标题的智能映射
+      if (columnConfig) {
+        const titleMappings: Record<string, string[]> = {
+          '描述': ['description', 'desc', 'content', 'text', 'body'],
+          '标题': ['title', 'name', 'heading', 'subject'],
+          '缩略图': ['thumbnail', 'image', 'img', 'picture', 'photo'],
+          '频道': ['channelTitle', 'channel', 'channelName'],
+          '发布时间': ['publishedAt', 'published', 'date', 'publishTime'],
+          '观看数': ['viewCount', 'views', 'count', 'playCount']
+        };
+        
+        if (titleMappings[columnConfig.title]) {
+          keysToTry.push(...titleMappings[columnConfig.title]);
+        }
+      }
+      
+      // 4. 如果sourceColumnId是动态生成的ID，尝试常见的字段名
+      if (sourceColumnId.includes('col_')) {
+        keysToTry.push('description', 'title', 'content', 'text', 'name');
+      }
+      
+      // 5. 如果sourceColumnId包含系统前缀，尝试去掉前缀
+      if (sourceColumnId.startsWith('system_')) {
+        keysToTry.push(sourceColumnId.replace('system_', ''));
+      }
+      
+      // 6. 通用字段映射作为后备
+      const fieldMappings: Record<string, string[]> = {
+        'description': ['description', 'desc', 'content', 'text', 'body', 'summary'],
+        'title': ['title', 'name', 'heading', 'subject', 'label'],
+        'thumbnail': ['thumbnail', 'image', 'img', 'picture', 'photo', 'cover']
+      };
+      
+      if (fieldMappings[sourceColumnId]) {
+        keysToTry.push(...fieldMappings[sourceColumnId]);
+      }
+      
+      // 去重并尝试每个可能的key
+      const uniqueKeys = [...new Set(keysToTry)];
+      
+      for (const key of uniqueKeys) {
+        if (row.data && row.data[key] !== undefined && row.data[key] !== null) {
+          content = String(row.data[key] || '');
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`DEBUG - Found data using key: ${key} (from sourceColumnId: ${sourceColumnId})`);
+            console.log(`DEBUG - Content preview:`, content.substring(0, 100));
+          }
+          break;
+        }
+      }
+      
+      if (!content && process.env.NODE_ENV === 'development') {
+        console.log(`DEBUG - No content found. Tried keys:`, uniqueKeys);
+        console.log(`DEBUG - Available data keys:`, Object.keys(row.data || {}));
+      }
+      
+      const result = {
+        rowId: row.rowId,
+        rowIndex: row.rowIndex,
+        content: content,
+        isEmpty: !content || content.trim() === ''
+      };
+      
+      return result;
+    });
+  }, [sourceColumnId, selectedRows]);
+
+  // 监听数据源列和选中行变化，更新预览数据
+  React.useEffect(() => {
+    const newPreviewData = calculatePreviewData();
+    setPreviewData(newPreviewData);
+  }, [calculatePreviewData]);
 
   // 初始化时设置默认模板
   React.useEffect(() => {
@@ -103,10 +273,12 @@ export default function AIPromptDrawer({
       setTemplateValidation(validation);
       
       // 如果模板有效，计算费用估算
-      if (validation.isValid && sampleData.length > 0) {
+      const validPreviewData = previewData.filter(item => !item.isEmpty);
+      if (validation.isValid && validPreviewData.length > 0) {
         setIsEstimating(true);
         try {
-          const estimate = estimateTokenCost(sampleData, model, promptTemplate);
+          const sampleContents = validPreviewData.map(item => item.content);
+          const estimate = estimateTokenCost(sampleContents, model, promptTemplate);
           setCostEstimate(estimate);
         } catch (error) {
           console.error('费用估算失败:', error);
@@ -120,7 +292,7 @@ export default function AIPromptDrawer({
       setTemplateValidation({ isValid: false, variables: [] });
       setCostEstimate(null);
     }
-  }, [promptTemplate, model, sampleData]);
+  }, [promptTemplate, model, previewData]);
   
   // 处理预设模板选择
   const handlePresetSelect = (preset: string) => {
@@ -146,6 +318,7 @@ export default function AIPromptDrawer({
       dryRun,
       writeTarget,
       processingScope,
+      sourceColumnId, // 新增：数据源列ID
     });
   };
   
@@ -212,6 +385,27 @@ export default function AIPromptDrawer({
                 <p className="text-xs text-gray-500 mt-1">
                   定价: 输入 {formatCost(MODEL_PRICING[model as keyof typeof MODEL_PRICING]?.input || 0)}/1K tokens, 
                   输出 {formatCost(MODEL_PRICING[model as keyof typeof MODEL_PRICING]?.output || 0)}/1K tokens
+                </p>
+              </div>
+              
+              {/* 数据源列选择 */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  数据源列
+                </label>
+                <select
+                  value={sourceColumnId}
+                  onChange={(e) => setSourceColumnId(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {availableColumns.map((column) => (
+                    <option key={column.id} value={column.id} title={column.subtitle ? `${column.title} - ${column.subtitle}` : column.title}>
+                      {column.isSystemColumn ? '🔧 ' : '📝 '}{column.title}{column.subtitle ? ` (${column.subtitle})` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">
+                  💡 选择包含待处理数据的列，处理结果将写入"{columnName}"列
                 </p>
               </div>
               
@@ -350,22 +544,71 @@ export default function AIPromptDrawer({
             
             {/* 右侧：预览和估算 */}
             <div className="space-y-6">
-              {/* 数据预览 */}
+              {/* 数据预览 - 选中行×数据源列 */}
               <div>
                 <h3 className="text-sm font-medium text-gray-700 mb-2 flex items-center">
                   <Info className="w-4 h-4 mr-1" />
-                  数据预览 (前3条)
+                  📊 数据预览 - 选中行×数据源列
                 </h3>
-                <div className="bg-gray-50 rounded-lg p-3 space-y-2 max-h-48 overflow-y-auto">
-                  {sampleData.slice(0, 3).map((sample, index) => (
-                    <div key={index} className="bg-white p-2 rounded border text-sm">
-                      <div className="text-gray-500 text-xs mb-1">第 {index + 1} 条:</div>
-                      <div className="text-gray-800 line-clamp-3">
-                        {sample.length > 150 ? `${sample.slice(0, 150)}...` : sample}
-                      </div>
-                    </div>
-                  ))}
+                
+                {/* 处理范围信息 */}
+                <div className="mb-3 p-2 bg-blue-50 rounded-lg text-xs">
+                  <div className="flex items-center justify-between text-blue-700">
+                    <span>💡 当前处理范围：{processingScope === 'selected' ? '选中行' : processingScope === 'filtered' ? '筛选结果' : '全表'} ({selectedRowCount}行)</span>
+                    <span>数据源：{availableColumns.find(col => col.id === sourceColumnId)?.title || sourceColumnId}</span>
+                  </div>
+                  <div className="text-blue-600 mt-1">
+                    目标列：{columnName}
+                  </div>
                 </div>
+                
+                {/* 预览数据区域 */}
+                <div className="bg-gray-50 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  {previewData.length > 0 ? (
+                    <div className="space-y-2">
+                      {previewData.map((item, index) => (
+                        <div 
+                          key={item.rowId} 
+                          className={`p-2 rounded border text-sm ${
+                            item.isEmpty ? 'bg-red-50 border-red-200' : 'bg-white border-gray-200'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-1">
+                            <div className="text-gray-500 text-xs">
+                              {item.isEmpty ? '❌' : '🔸'} 第{item.rowIndex + 1}行 (ID: {item.rowId})
+                            </div>
+                          </div>
+                          <div className={`${
+                            item.isEmpty ? 'text-red-600 italic' : 'text-gray-800'
+                          }`}>
+                            {item.isEmpty ? 
+                              '(该行数据为空，将跳过处理)' : 
+                              (item.content.length > 150 ? `${item.content.slice(0, 150)}...` : item.content)
+                            }
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 py-6">
+                      <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                      <div>暂无预览数据</div>
+                      <div className="text-xs mt-1">请选择数据源列和确保有选中的行</div>
+                    </div>
+                  )}
+                </div>
+                
+                {/* 统计信息 */}
+                {previewData.length > 0 && (
+                  <div className="mt-2 text-xs text-gray-600 space-y-1">
+                    <div className="flex justify-between">
+                      <span>✅ 共{previewData.filter(item => !item.isEmpty).length}个有效单元格将被处理</span>
+                      {previewData.some(item => item.isEmpty) && (
+                        <span className="text-orange-600">⚠️ {previewData.filter(item => item.isEmpty).length}个空单元格将被跳过</span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               
               {/* 费用估算 */}
@@ -404,16 +647,29 @@ export default function AIPromptDrawer({
               )}
               
               {/* 模板示例渲染 */}
-              {templateValidation.isValid && sampleData.length > 0 && (
+              {templateValidation.isValid && previewData.length > 0 && (
                 <div>
                   <h3 className="text-sm font-medium text-gray-700 mb-2">
-                    模板预览 (第1条数据)
+                    模板预览
                   </h3>
                   <div className="bg-gray-50 rounded-lg p-3 text-sm">
-                    <div className="text-gray-500 text-xs mb-1">渲染后的提示词:</div>
-                    <div className="bg-white p-2 rounded border font-mono text-xs overflow-x-auto">
-                      {promptTemplate.replace('{{content}}', sampleData[0] || '(无数据)')}
-                    </div>
+                    {(() => {
+                      const firstValidData = previewData.find(item => !item.isEmpty);
+                      return firstValidData ? (
+                        <>
+                          <div className="text-gray-500 text-xs mb-1">
+                            渲染后的提示词 (第{firstValidData.rowIndex + 1}行数据):
+                          </div>
+                          <div className="bg-white p-2 rounded border font-mono text-xs overflow-x-auto">
+                            {promptTemplate.replace('{{content}}', firstValidData.content)}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-gray-500 text-center py-2">
+                          暂无有效数据用于预览
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}

@@ -641,6 +641,19 @@ export function YouTubeTable({
       dataCount = allRows.length
     }
     
+    // 调试信息
+    if (process.env.NODE_ENV === 'development') {
+      console.log('=== getProcessingInfo Debug ===');
+      console.log('selectedRows keys:', selectedRows);
+      console.log('targetRows count:', targetRows.length);
+      console.log('dynamicColumns.visibleConfigs:', dynamicColumns.visibleConfigs);
+      if (targetRows.length > 0) {
+        console.log('First targetRow:', targetRows[0]);
+        console.log('First targetRow.original:', targetRows[0].original);
+        console.log('First targetRow.original keys:', Object.keys(targetRows[0].original || {}));
+      }
+    }
+    
     return {
       processingScope,
       targetRows,
@@ -648,8 +661,25 @@ export function YouTubeTable({
       selectedRowCount: selectedRows.length,
       filteredRowCount: filteredRows.length,
       totalRowCount: allRows.length,
+      // 新增：完整的行数据
+      selectedRowsData: targetRows.map(row => ({
+        rowId: row.original.id,
+        rowIndex: row.index,
+        data: row.original
+      })),
+      // 新增：可用列信息
+      availableColumns: dynamicColumns.visibleConfigs
+        .filter(col => !['select', 'index', 'actions'].includes(col.id))
+        .map(col => ({
+          id: col.id,
+          title: col.title,
+          subtitle: col.subtitle, // 包含用户自定义副标题
+          dataType: col.dataType,
+          isSystemColumn: col.isSystemColumn,
+          accessorKey: col.accessorKey // 添加实际的数据字段名
+        }))
     }
-  }, [rowSelection, table, columnFilters, globalFilter])
+  }, [rowSelection, table, columnFilters, globalFilter, dynamicColumns])
 
   // 处理AI批处理配置提交
   const handleAIBatchSubmit = React.useCallback(async (config: AIBatchConfig) => {
@@ -657,16 +687,17 @@ export function YouTubeTable({
     
     const processingInfo = getProcessingInfo()
     
-    // 获取目标行的列数据
+    // 获取数据源列的数据（使用config.sourceColumnId）
     const columnData = processingInfo.targetRows
       .map(row => ({
         rowId: row.original.id,
-        content: String(row.original[selectedColumnForAI.id as keyof UnifiedDataItem] || '')
+        content: String(row.original[config.sourceColumnId as keyof UnifiedDataItem] || '')
       }))
       .filter(item => item.content.trim().length > 0)
     
     if (columnData.length === 0) {
-      alert(`选择的列在${processingInfo.processingScope === 'selected' ? '选中行' : processingInfo.processingScope === 'filtered' ? '筛选结果' : '全表'}中没有可处理的数据`)
+      const sourceColumnName = processingInfo.availableColumns.find(col => col.id === config.sourceColumnId)?.title || config.sourceColumnId;
+      alert(`数据源列"${sourceColumnName}"在${processingInfo.processingScope === 'selected' ? '选中行' : processingInfo.processingScope === 'filtered' ? '筛选结果' : '全表'}中没有可处理的数据`)
       return
     }
     
@@ -998,20 +1029,21 @@ export function YouTubeTable({
           onSubmit={handleAIBatchSubmit}
           columnId={selectedColumnForAI.id}
           columnName={selectedColumnForAI.name}
+          // 新增：传递可用列和选中行数据
+          availableColumns={(() => {
+            const info = getProcessingInfo()
+            return info.availableColumns
+          })()}
+          selectedRows={(() => {
+            const info = getProcessingInfo()
+            return info.selectedRowsData
+          })()}
+          // 保持现有兼容属性
           dataCount={(() => {
             const info = getProcessingInfo()
-            return info.targetRows
-              .map(row => String(row.original[selectedColumnForAI.id as keyof UnifiedDataItem] || ''))
-              .filter(content => content.trim().length > 0)
-              .length
+            return info.dataCount
           })()}
-          sampleData={(() => {
-            const info = getProcessingInfo()
-            return info.targetRows
-              .map(row => String(row.original[selectedColumnForAI.id as keyof UnifiedDataItem] || ''))
-              .filter(content => content.trim().length > 0)
-              .slice(0, 3)
-          })()}
+          sampleData={[]} // 空数组，将被新的预览逻辑替代
           selectedRowCount={Object.keys(rowSelection).filter(key => rowSelection[key]).length}
           filteredRowCount={table.getFilteredRowModel().rows.length}
           totalRowCount={table.getCoreRowModel().rows.length}
