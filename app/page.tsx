@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation'
 import { DataInputType } from '@/types'
 import { useAppStore, useVideoState, useVideoActions } from '@/store'
 import { VideoUrlInput, ChannelInput, FileUpload } from '@/components/data-input'
+import { TroubleshootingGuide } from '@/components/help'
 
 export default function HomePage() {
   const router = useRouter()
@@ -168,17 +169,38 @@ export default function HomePage() {
               <div className="flex-shrink-0">
                 <span className="text-red-400 text-xl">⚠️</span>
               </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800">操作失败</h3>
+              <div className="ml-3 flex-1">
+                <h3 className="text-sm font-medium text-red-800">数据获取失败</h3>
                 <div className="mt-2 text-sm text-red-700">
                   {error}
                 </div>
-                <button
-                  onClick={() => setError(null)}
-                  className="mt-2 text-sm text-red-600 hover:text-red-500"
-                >
-                  关闭
-                </button>
+                
+                {/* 常见问题解决建议 */}
+                <div className="mt-3 p-3 bg-red-100 rounded-md">
+                  <h4 className="text-xs font-medium text-red-800 mb-2">💡 常见问题及解决方案：</h4>
+                  <ul className="text-xs text-red-700 space-y-1">
+                    <li>• <strong>视频链接无效</strong>：请确保视频ID为11个字符，如：dQw4w9WgXcQ</li>
+                    <li>• <strong>频道不存在</strong>：请检查频道链接是否正确，或尝试搜索频道名</li>
+                    <li>• <strong>视频私有/删除</strong>：该视频可能设为私有或已被删除</li>
+                    <li>• <strong>网络问题</strong>：请检查网络连接，稍后重试</li>
+                    <li>• <strong>API配额限制</strong>：今日API调用次数已达上限，请明天再试</li>
+                  </ul>
+                </div>
+                
+                <div className="mt-3 flex items-center space-x-3">
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-sm text-red-600 hover:text-red-500 font-medium"
+                  >
+                    关闭提示
+                  </button>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="text-sm text-red-600 hover:text-red-500"
+                  >
+                    刷新页面
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -269,6 +291,11 @@ export default function HomePage() {
               </div>
             </div>
           )}
+          
+          {/* 故障排除指南 */}
+          <div className="mt-8">
+            <TroubleshootingGuide />
+          </div>
         </div>
 
 

@@ -169,7 +169,10 @@ export function YouTubeTable({
     initialData: data,
     autoInferColumns: false, // 暂时禁用自动推断来测试
     onColumnChange: (configs) => {
-      console.log('列配置已更新:', configs)
+      // 仅在开发环境输出调试信息，避免生产环境控制台噪音
+      if (process.env.NODE_ENV === 'development') {
+        console.log('列配置已更新:', configs)
+      }
     },
     onError: (error) => {
       console.error('动态列系统错误:', error)
@@ -178,7 +181,10 @@ export function YouTubeTable({
 
   // 处理副标题更新的函数
   const handleSubtitleChange = React.useCallback((columnId: string, newSubtitle: string) => {
-    console.log(`更新列 ${columnId} 的副标题:`, newSubtitle)
+    // 仅在开发环境输出调试信息，避免控制台频繁输出
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`更新列 ${columnId} 的副标题:`, newSubtitle)
+    }
     try {
       dynamicColumns.updateColumn(columnId, {
         subtitle: newSubtitle.trim() || undefined, // 空字符串转为undefined
@@ -198,7 +204,10 @@ export function YouTubeTable({
   // 临时手动添加基础列配置（用于测试数据获取功能）
   React.useEffect(() => {
     if (isMounted && data.length > 0 && dynamicColumns.columnConfigs.length === 0) {
-      console.log('手动添加基础列配置...')
+      // 仅在开发环境输出调试信息
+      if (process.env.NODE_ENV === 'development') {
+        console.log('手动添加基础列配置...')
+      }
       
       // 添加基础YouTube列 - 优化列宽设置
       const basicColumns = [
@@ -613,8 +622,28 @@ export function YouTubeTable({
     }
   }, [batchState, tableData, aiColumns])
   
-  // 计算处理范围和数据统计 - 使用useCallback稳定函数引用
-  const getProcessingInfo = React.useCallback(() => {
+  
+  // 同步数据变化到父组件
+  React.useEffect(() => {
+    onDataChange?.(tableData)
+  }, [tableData, onDataChange])
+
+  // 进一步稳定化availableColumns，避免每次渲染都创建新的对象数组
+  const stableAvailableColumns = React.useMemo(() => {
+    return dynamicColumns.visibleConfigs
+      .filter(col => !['select', 'index', 'actions'].includes(col.id))
+      .map(col => ({
+        id: col.id,
+        title: col.title,
+        subtitle: col.subtitle, // 包含用户自定义副标题
+        dataType: col.dataType,
+        isSystemColumn: col.isSystemColumn,
+        accessorKey: col.accessorKey // 添加实际的数据字段名
+      }))
+  }, [dynamicColumns.visibleConfigs])
+
+  // 使用useMemo稳定化AIPromptDrawer的props，避免无限重渲染
+  const stableProcessingInfo = React.useMemo(() => {
     const selectedRows = Object.keys(rowSelection).filter(key => rowSelection[key])
     const filteredRows = table.getFilteredRowModel().rows
     const allRows = table.getCoreRowModel().rows
@@ -641,19 +670,6 @@ export function YouTubeTable({
       dataCount = allRows.length
     }
     
-    // 调试信息
-    if (process.env.NODE_ENV === 'development') {
-      console.log('=== getProcessingInfo Debug ===');
-      console.log('selectedRows keys:', selectedRows);
-      console.log('targetRows count:', targetRows.length);
-      console.log('dynamicColumns.visibleConfigs:', dynamicColumns.visibleConfigs);
-      if (targetRows.length > 0) {
-        console.log('First targetRow:', targetRows[0]);
-        console.log('First targetRow.original:', targetRows[0].original);
-        console.log('First targetRow.original keys:', Object.keys(targetRows[0].original || {}));
-      }
-    }
-    
     return {
       processingScope,
       targetRows,
@@ -667,33 +683,46 @@ export function YouTubeTable({
         rowIndex: row.index,
         data: row.original
       })),
-      // 新增：可用列信息
-      availableColumns: dynamicColumns.visibleConfigs
-        .filter(col => !['select', 'index', 'actions'].includes(col.id))
-        .map(col => ({
-          id: col.id,
-          title: col.title,
-          subtitle: col.subtitle, // 包含用户自定义副标题
-          dataType: col.dataType,
-          isSystemColumn: col.isSystemColumn,
-          accessorKey: col.accessorKey // 添加实际的数据字段名
-        }))
+      // 使用稳定化的列信息
+      availableColumns: stableAvailableColumns
     }
-  }, [rowSelection, table, columnFilters, globalFilter, dynamicColumns])
+  }, [rowSelection, table, columnFilters, globalFilter, stableAvailableColumns])
 
-  // 处理AI批处理配置提交
+  // 计算处理范围和数据统计 - 直接返回稳定化的处理信息，避免重复计算
+  const getProcessingInfo = React.useCallback(() => {
+    return stableProcessingInfo
+  }, [stableProcessingInfo])
+
+  // 处理AI批处理配置提交 - 移到getProcessingInfo之后以避免TDZ错误
   const handleAIBatchSubmit = React.useCallback(async (config: AIBatchConfig) => {
     if (!selectedColumnForAI) return
     
     const processingInfo = getProcessingInfo()
     
-    // 获取数据源列的数据（使用config.sourceColumnId）
-    const columnData = processingInfo.targetRows
-      .map(row => ({
-        rowId: row.original.id,
-        content: String(row.original[config.sourceColumnId as keyof UnifiedDataItem] || '')
-      }))
-      .filter(item => item.content.trim().length > 0)
+    // 优先使用预提取的数据（确保预览和处理使用相同数据）
+    let columnData: Array<{ rowId: string; content: string }>
+    
+    if (config.extractedData && config.extractedData.length > 0) {
+      // 使用预提取的数据
+      columnData = config.extractedData
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('DEBUG - handleAIBatchSubmit: 使用预提取数据:', {
+          extractedDataCount: config.extractedData.length,
+          firstExtractedItem: config.extractedData[0]
+        });
+      }
+    } else {
+      // 回退到原来的数据提取逻辑（兼容性保障）
+      console.warn('警告: 未收到预提取数据，回退到原始数据提取逻辑');
+      
+      columnData = processingInfo.targetRows
+        .map(row => ({
+          rowId: row.original.id,
+          content: String(row.original[config.sourceColumnId as keyof UnifiedDataItem] || '')
+        }))
+        .filter(item => item.content.trim().length > 0)
+    }
     
     if (columnData.length === 0) {
       const sourceColumnName = processingInfo.availableColumns.find(col => col.id === config.sourceColumnId)?.title || config.sourceColumnId;
@@ -701,8 +730,13 @@ export function YouTubeTable({
       return
     }
     
-    // 暂时不预创建虚拟列，等待后端返回jobId后再创建
-    // 这样可以确保列键与后端返回的jobId一致
+    if (process.env.NODE_ENV === 'development') {
+      console.log('DEBUG - handleAIBatchSubmit: 最终使用的数据:', {
+        columnDataCount: columnData.length,
+        processingScope: processingInfo.processingScope,
+        sourceColumnId: config.sourceColumnId
+      });
+    }
     
     // 关闭抽屉
     setShowAIDrawer(false)
@@ -720,11 +754,13 @@ export function YouTubeTable({
       }))
     })
   }, [selectedColumnForAI, getProcessingInfo, getNewColumnKey, startBatch])
-  
-  // 同步数据变化到父组件
-  React.useEffect(() => {
-    onDataChange?.(tableData)
-  }, [tableData, onDataChange])
+
+  const stableProcessingScope = React.useMemo(() => {
+    const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length
+    if (selectedCount > 0) return 'selected'
+    if (columnFilters.length > 0 || globalFilter) return 'filtered'
+    return 'all'
+  }, [rowSelection, columnFilters, globalFilter])
 
   if (loading) {
     return (
@@ -1029,30 +1065,16 @@ export function YouTubeTable({
           onSubmit={handleAIBatchSubmit}
           columnId={selectedColumnForAI.id}
           columnName={selectedColumnForAI.name}
-          // 新增：传递可用列和选中行数据
-          availableColumns={(() => {
-            const info = getProcessingInfo()
-            return info.availableColumns
-          })()}
-          selectedRows={(() => {
-            const info = getProcessingInfo()
-            return info.selectedRowsData
-          })()}
+          // 使用稳定化的props，避免无限重渲染
+          availableColumns={stableProcessingInfo.availableColumns}
+          selectedRows={stableProcessingInfo.selectedRowsData}
           // 保持现有兼容属性
-          dataCount={(() => {
-            const info = getProcessingInfo()
-            return info.dataCount
-          })()}
+          dataCount={stableProcessingInfo.dataCount}
           sampleData={[]} // 空数组，将被新的预览逻辑替代
-          selectedRowCount={Object.keys(rowSelection).filter(key => rowSelection[key]).length}
-          filteredRowCount={table.getFilteredRowModel().rows.length}
-          totalRowCount={table.getCoreRowModel().rows.length}
-          processingScope={(() => {
-            const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length
-            if (selectedCount > 0) return 'selected'
-            if (columnFilters.length > 0 || globalFilter) return 'filtered'
-            return 'all'
-          })()}
+          selectedRowCount={stableProcessingInfo.selectedRowCount}
+          filteredRowCount={stableProcessingInfo.filteredRowCount}
+          totalRowCount={stableProcessingInfo.totalRowCount}
+          processingScope={stableProcessingScope}
         />
       )}
 

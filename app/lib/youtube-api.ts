@@ -432,23 +432,56 @@ export class YouTubeAPIClient {
    */
   async getSingleVideo(request: SingleVideoRequest): Promise<YouTubeAPIResponse<YouTubeVideo>> {
     try {
+      console.log('🎥 开始获取单个视频信息:', request.videoUrl)
+      
       const videoId = this.extractVideoId(request.videoUrl)
       if (!videoId) {
-        throw new YouTubeAPIError('Invalid video URL', 'INVALID_URL')
+        console.error('❌ 无法提取视频ID:', request.videoUrl)
+        throw new YouTubeAPIError(
+          `无法从链接中提取视频ID。请确保使用完整的YouTube视频链接，如：https://www.youtube.com/watch?v=dQw4w9WgXcQ`, 
+          'INVALID_VIDEO_URL'
+        )
       }
 
-      const response = await this.youtube.videos.list({
-        part: ['snippet', 'statistics', 'contentDetails'],
-        id: [videoId],
-      })
+      console.log('🆔 提取的视频ID:', videoId)
+      
+      // 验证视频ID格式
+      if (videoId.length !== 11) {
+        console.error('❌ 视频ID长度不正确:', videoId, '长度:', videoId.length)
+        throw new YouTubeAPIError(
+          `视频ID长度不正确（${videoId.length}字符），YouTube视频ID应为11个字符。请检查链接是否完整。`, 
+          'INVALID_VIDEO_ID'
+        )
+      }
+
+      if (!/^[a-zA-Z0-9_-]{11}$/.test(videoId)) {
+        console.error('❌ 视频ID包含无效字符:', videoId)
+        throw new YouTubeAPIError(
+          `视频ID "${videoId}" 包含无效字符。视频ID只能包含字母、数字、下划线和连字符。`, 
+          'INVALID_VIDEO_ID_FORMAT'
+        )
+      }
+
+      const response = await this.withRetry(
+        () => this.youtube.videos.list({
+          part: ['snippet', 'statistics', 'contentDetails'],
+          id: [videoId],
+        }),
+        `获取视频信息: ${videoId}`
+      )
 
       this.quotaUsed += YOUTUBE_API_CONFIG.quotaCosts['videos.list']
 
       if (!response.data.items?.length) {
-        throw new YouTubeAPIError('Video not found', 'VIDEO_NOT_FOUND')
+        console.error('❌ 视频未找到或不可访问:', videoId)
+        throw new YouTubeAPIError(
+          `视频 "${videoId}" 不存在、已被删除或设为私有。请检查链接是否正确，或尝试其他视频链接。`, 
+          'VIDEO_NOT_FOUND'
+        )
       }
 
       const videoData = this.transformVideoData(response.data.items[0], request.videoUrl)
+      console.log('✅ 视频信息获取成功:', videoData.title)
 
       return {
         success: true,
@@ -456,7 +489,7 @@ export class YouTubeAPIClient {
         quotaUsed: this.quotaUsed,
       }
     } catch (error) {
-      console.error('YouTube API Error:', error)
+      console.error('YouTube单视频API错误:', error)
       return this.handleError(error)
     }
   }

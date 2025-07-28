@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback } from 'react'
 import { DataInputType } from '@/types'
+import { URLValidator } from './URLValidator'
 
 interface ChannelInputProps {
   onSubmit: (channelId: string, channelUrl: string, options?: any) => void
@@ -183,6 +184,11 @@ export function ChannelInput({
               ? '支持 @用户名, /c/频道名, /channel/频道ID 等格式'
               : '频道ID通常以UC开头，长度为24字符'}
           </p>
+          
+          {/* 实时URL验证 */}
+          {inputType === 'url' && (
+            <URLValidator url={channelUrl} type="channel" />
+          )}
         </div>
 
         {/* 获取选项 */}

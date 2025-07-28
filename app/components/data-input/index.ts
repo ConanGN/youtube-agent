@@ -3,3 +3,4 @@
 export { VideoUrlInput } from './VideoUrlInput'
 export { ChannelInput } from './ChannelInput'
 export { FileUpload } from './FileUpload'
+export { URLValidator } from './URLValidator'

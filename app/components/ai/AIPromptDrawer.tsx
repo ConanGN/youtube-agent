@@ -65,6 +65,11 @@ export interface AIBatchConfig {
   processingScope?: 'selected' | 'filtered' | 'all';
   // 新增：数据源列ID
   sourceColumnId: string;
+  // 新增：预提取的数据（确保预览和处理使用相同数据）
+  extractedData?: Array<{
+    rowId: string;
+    content: string;
+  }>;
 }
 
 // 从SiliconFlow配置生成可用模型列表
@@ -91,21 +96,15 @@ export default function AIPromptDrawer({
   processingScope = 'all',
 }: AIPromptDrawerProps) {
   
-  // 调试：打印接收到的props
+  // 调试：仅在首次打开时输出关键信息
   React.useEffect(() => {
     if (isOpen && process.env.NODE_ENV === 'development') {
-      console.log('=== AIPromptDrawer Props Debug ===');
-      console.log('availableColumns:', availableColumns);
-      console.log('selectedRows:', selectedRows);
-      console.log('selectedRows.length:', selectedRows.length);
-      console.log('columnId:', columnId);
-      console.log('columnName:', columnName);
-      if (selectedRows.length > 0) {
-        console.log('First row data:', selectedRows[0]);
-        console.log('First row data keys:', Object.keys(selectedRows[0].data || {}));
-      }
+      console.log('=== AIPromptDrawer Opened ===');
+      console.log('availableColumns count:', availableColumns.length);
+      console.log('selectedRows count:', selectedRows.length);
+      console.log('targetColumn:', columnId, columnName);
     }
-  }, [isOpen, availableColumns, selectedRows, columnId, columnName]);
+  }, [isOpen]); // 只在isOpen变化时执行，避免重复输出
   // 状态管理
   const [model, setModel] = useState(AVAILABLE_MODELS[0].value);
   const [promptTemplate, setPromptTemplate] = useState('');
@@ -130,34 +129,87 @@ export default function AIPromptDrawer({
     setSourceColumnId(columnId);
   }, [columnId]);
 
-  // 计算预览数据的函数
-  const calculatePreviewData = React.useCallback(() => {
-    if (!sourceColumnId || !selectedRows.length) {
-      return [];
+  // 统一的数据提取函数（供预览和实际处理使用）
+  const extractDataFromRow = React.useCallback((rowData: any, columnId: string) => {
+    // 首先查找对应的列配置以获取accessorKey
+    const columnConfig = availableColumns.find(col => col.id === columnId);
+    
+    // 构建尝试的键列表（按优先级排序）
+    const keysToTry = [];
+    
+    // 1. 优先使用列配置中的accessorKey
+    if (columnConfig && columnConfig.accessorKey) {
+      keysToTry.push(columnConfig.accessorKey);
     }
     
-    return selectedRows.map((row) => {
-      // 调试信息：输出关键数据结构（仅在开发环境）
-      if (process.env.NODE_ENV === 'development') {
-        console.log('DEBUG - calculatePreviewData:', {
-          sourceColumnId,
-          rowId: row.rowId,
-          availableDataKeys: Object.keys(row.data || {}),
-          sourceColumnValue: row.data[sourceColumnId]
-        });
+    // 2. 尝试使用columnId直接访问
+    keysToTry.push(columnId);
+    
+    // 3. 基于列标题的智能映射
+    if (columnConfig) {
+      const titleMappings: Record<string, string[]> = {
+        '描述': ['description', 'desc', 'content', 'text', 'body'],
+        '标题': ['title', 'name', 'heading', 'subject'],
+        '缩略图': ['thumbnail', 'image', 'img', 'picture', 'photo'],
+        '频道': ['channelTitle', 'channel', 'channelName'],
+        '发布时间': ['publishedAt', 'published', 'date', 'publishTime'],
+        '观看数': ['viewCount', 'views', 'count', 'playCount']
+      };
+      
+      if (titleMappings[columnConfig.title]) {
+        keysToTry.push(...titleMappings[columnConfig.title]);
       }
-      
-      // 尝试多种方式获取数据
-      let content = '';
-      
-      // 首先查找对应的列配置以获取accessorKey
+    }
+    
+    // 4. 如果columnId是动态生成的ID，尝试常见的字段名
+    if (columnId.includes('col_')) {
+      keysToTry.push('description', 'title', 'content', 'text', 'name');
+    }
+    
+    // 5. 如果columnId包含系统前缀，尝试去掉前缀
+    if (columnId.startsWith('system_')) {
+      keysToTry.push(columnId.replace('system_', ''));
+    }
+    
+    // 6. 通用字段映射作为后备
+    const fieldMappings: Record<string, string[]> = {
+      'description': ['description', 'desc', 'content', 'text', 'body', 'summary'],
+      'title': ['title', 'name', 'heading', 'subject', 'label'],
+      'thumbnail': ['thumbnail', 'image', 'img', 'picture', 'photo', 'cover']
+    };
+    
+    if (fieldMappings[columnId]) {
+      keysToTry.push(...fieldMappings[columnId]);
+    }
+    
+    // 去重并尝试每个可能的key
+    const uniqueKeys = [...new Set(keysToTry)];
+    
+    for (const key of uniqueKeys) {
+      if (rowData && rowData[key] !== undefined && rowData[key] !== null) {
+        const content = String(rowData[key] || '');
+        return content;
+      }
+    }
+    
+    return '';
+  }, [availableColumns]);
+
+  // 移除了calculatePreviewData函数，逻辑已直接整合到useEffect中
+
+  // 监听数据源列和选中行变化，更新预览数据
+  // 优化：直接在useEffect内部定义数据提取逻辑，避免函数引用依赖
+  React.useEffect(() => {
+    if (!sourceColumnId || !selectedRows.length) {
+      setPreviewData([]);
+      return;
+    }
+    
+    const newPreviewData = selectedRows.map((row) => {
+      // 直接在这里定义数据提取逻辑，避免函数引用依赖
       const columnConfig = availableColumns.find(col => col.id === sourceColumnId);
       
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`DEBUG - Column config found for ${sourceColumnId}:`, columnConfig);
-      }
-      
-      // 构建尝试的键列表（按优先级排序）
+      // 构建尝试的键列表
       const keysToTry = [];
       
       // 1. 优先使用列配置中的accessorKey
@@ -165,7 +217,7 @@ export default function AIPromptDrawer({
         keysToTry.push(columnConfig.accessorKey);
       }
       
-      // 2. 尝试使用sourceColumnId直接访问
+      // 2. 尝试使用columnId直接访问
       keysToTry.push(sourceColumnId);
       
       // 3. 基于列标题的智能映射
@@ -173,10 +225,6 @@ export default function AIPromptDrawer({
         const titleMappings: Record<string, string[]> = {
           '描述': ['description', 'desc', 'content', 'text', 'body'],
           '标题': ['title', 'name', 'heading', 'subject'],
-          '缩略图': ['thumbnail', 'image', 'img', 'picture', 'photo'],
-          '频道': ['channelTitle', 'channel', 'channelName'],
-          '发布时间': ['publishedAt', 'published', 'date', 'publishTime'],
-          '观看数': ['viewCount', 'views', 'count', 'playCount']
         };
         
         if (titleMappings[columnConfig.title]) {
@@ -184,62 +232,32 @@ export default function AIPromptDrawer({
         }
       }
       
-      // 4. 如果sourceColumnId是动态生成的ID，尝试常见的字段名
+      // 4. 常见字段名后备
       if (sourceColumnId.includes('col_')) {
-        keysToTry.push('description', 'title', 'content', 'text', 'name');
-      }
-      
-      // 5. 如果sourceColumnId包含系统前缀，尝试去掉前缀
-      if (sourceColumnId.startsWith('system_')) {
-        keysToTry.push(sourceColumnId.replace('system_', ''));
-      }
-      
-      // 6. 通用字段映射作为后备
-      const fieldMappings: Record<string, string[]> = {
-        'description': ['description', 'desc', 'content', 'text', 'body', 'summary'],
-        'title': ['title', 'name', 'heading', 'subject', 'label'],
-        'thumbnail': ['thumbnail', 'image', 'img', 'picture', 'photo', 'cover']
-      };
-      
-      if (fieldMappings[sourceColumnId]) {
-        keysToTry.push(...fieldMappings[sourceColumnId]);
+        keysToTry.push('description', 'title', 'content', 'text');
       }
       
       // 去重并尝试每个可能的key
       const uniqueKeys = [...new Set(keysToTry)];
+      let content = '';
       
       for (const key of uniqueKeys) {
         if (row.data && row.data[key] !== undefined && row.data[key] !== null) {
           content = String(row.data[key] || '');
-          if (process.env.NODE_ENV === 'development') {
-            console.log(`DEBUG - Found data using key: ${key} (from sourceColumnId: ${sourceColumnId})`);
-            console.log(`DEBUG - Content preview:`, content.substring(0, 100));
-          }
           break;
         }
       }
       
-      if (!content && process.env.NODE_ENV === 'development') {
-        console.log(`DEBUG - No content found. Tried keys:`, uniqueKeys);
-        console.log(`DEBUG - Available data keys:`, Object.keys(row.data || {}));
-      }
-      
-      const result = {
+      return {
         rowId: row.rowId,
         rowIndex: row.rowIndex,
         content: content,
         isEmpty: !content || content.trim() === ''
       };
-      
-      return result;
     });
-  }, [sourceColumnId, selectedRows]);
-
-  // 监听数据源列和选中行变化，更新预览数据
-  React.useEffect(() => {
-    const newPreviewData = calculatePreviewData();
+    
     setPreviewData(newPreviewData);
-  }, [calculatePreviewData]);
+  }, [sourceColumnId, selectedRows, availableColumns]); // 只依赖真实的数据，不依赖函数引用
 
   // 初始化时设置默认模板
   React.useEffect(() => {
@@ -311,6 +329,22 @@ export default function AIPromptDrawer({
       return;
     }
     
+    // 将预览数据转换为提取数据格式，确保预览和处理使用相同数据
+    const extractedData = previewData
+      .filter(item => !item.isEmpty) // 只包含非空数据
+      .map(item => ({
+        rowId: item.rowId,
+        content: item.content
+      }));
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('DEBUG - handleSubmit extractedData:', {
+        previewDataCount: previewData.length,
+        extractedDataCount: extractedData.length,
+        firstExtractedItem: extractedData[0]
+      });
+    }
+    
     onSubmit({
       model,
       promptTemplate,
@@ -318,7 +352,8 @@ export default function AIPromptDrawer({
       dryRun,
       writeTarget,
       processingScope,
-      sourceColumnId, // 新增：数据源列ID
+      sourceColumnId, // 数据源列ID
+      extractedData, // 预提取的数据，确保预览和处理使用相同数据
     });
   };
   

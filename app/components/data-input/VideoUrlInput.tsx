@@ -5,6 +5,7 @@
 
 import React, { useState, useCallback } from 'react'
 import { DataInputType } from '@/types'
+import { URLValidator } from './URLValidator'
 
 interface VideoUrlInputProps {
   onSubmit: (urls: string[], type: DataInputType) => void
@@ -159,6 +160,9 @@ https://youtu.be/9bZkp7q19f0`)
             <p className="mt-1 text-sm text-gray-500">
               支持youtube.com和youtu.be链接格式
             </p>
+            
+            {/* 实时URL验证 */}
+            <URLValidator url={singleUrl} type="video" />
           </div>
           
           <div className="flex items-center justify-between">
