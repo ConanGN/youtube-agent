@@ -312,6 +312,7 @@ export interface DynamicColumnConfig {
   // 基本信息
   id: string
   title: string
+  subtitle?: string // 副标题 - 可选字段，用于为列提供额外的描述信息 
   dataType: ColumnDataType
   accessorKey: string
   

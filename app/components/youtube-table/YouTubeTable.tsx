@@ -28,6 +28,7 @@ import { ThumbnailEditableCell } from './ThumbnailEditableCell'
 import { SubtitleEditDialog } from './SubtitleEditDialog'
 import { Filter, GlobalFilter, ColumnVisibility, AdvancedFilterPanel } from './FilterComponents'
 import { ColumnManager } from './ColumnManager'
+import { ColumnHeaderWithSubtitle, shouldShowSubtitleHeader } from './ColumnHeaderWithSubtitle'
 import { TableStyleEnhancer } from '../table/TableStyleEnhancer'
 import AIPromptDrawer, { type AIBatchConfig } from '@/app/components/ai/AIPromptDrawer'
 import { useAIBatch, BatchStatus } from '@/app/hooks/useAIBatch'
@@ -174,6 +175,20 @@ export function YouTubeTable({
       console.error('动态列系统错误:', error)
     }
   })
+
+  // 处理副标题更新的函数
+  const handleSubtitleChange = React.useCallback((columnId: string, newSubtitle: string) => {
+    console.log(`更新列 ${columnId} 的副标题:`, newSubtitle)
+    try {
+      dynamicColumns.updateColumn(columnId, {
+        subtitle: newSubtitle.trim() || undefined, // 空字符串转为undefined
+        updatedAt: new Date().toISOString()
+      })
+    } catch (error) {
+      console.error('更新副标题失败:', error)
+      // 可以在这里添加错误提示UI
+    }
+  }, [dynamicColumns])
 
   // 设置客户端挂载状态
   React.useEffect(() => {
@@ -783,9 +798,27 @@ export function YouTubeTable({
                             }`}
                             onClick={header.column.getToggleSortingHandler()}
                           >
-                            {flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
+                            {/* 根据列类型选择渲染方式 */}
+                            {shouldShowSubtitleHeader(header.column.id) && 
+                             dynamicColumns.columnConfigs.find(config => config.id === header.column.id) ? (
+                              // 使用副标题组件渲染动态列
+                              (() => {
+                                const columnConfig = dynamicColumns.columnConfigs.find(config => config.id === header.column.id)
+                                return (
+                                  <ColumnHeaderWithSubtitle
+                                    title={columnConfig?.title || header.column.id}
+                                    subtitle={columnConfig?.subtitle}
+                                    columnId={header.column.id}
+                                    onSubtitleChange={handleSubtitleChange}
+                                  />
+                                )
+                              })()
+                            ) : (
+                              // 使用标准渲染方式
+                              flexRender(
+                                header.column.columnDef.header,
+                                header.getContext()
+                              )
                             )}
                             {{
                               asc: ' 🔼',
