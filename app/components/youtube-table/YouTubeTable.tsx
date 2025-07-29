@@ -107,6 +107,7 @@ export function YouTubeTable({
     // 默认显示基本列
     select: true,
     index: true, // 默认显示序号列
+    subtitle: true, // 默认显示字幕列
     thumbnail: true,
     title: true,
     'channelTitle': true,
@@ -417,6 +418,7 @@ export function YouTubeTable({
         // 始终显示的基本列
         select: true,
         index: true, // 序号列始终显示
+        subtitle: true, // 字幕列始终显示
         thumbnail: true,
         title: true,
         channelTitle: true,
@@ -487,9 +489,122 @@ export function YouTubeTable({
         enableColumnFilter: false,
       },
     ]
+
+    // 链接列定义
+    const linkColumn: ColumnDef<UnifiedDataItem> = {
+      id: 'videoLink',
+      header: () => (
+        <div className="text-center">
+          <span className="text-sm font-medium">链接</span>
+        </div>
+      ),
+      cell: ({ row }) => {
+        const videoUrl = row.original.videoUrl
+        if (!videoUrl) {
+          return (
+            <div className="text-gray-400 text-sm px-2 py-1 text-center italic">
+              暂无链接
+            </div>
+          )
+        }
+        
+        return (
+          <div className="px-2 py-1 text-center">
+            <a
+              href={videoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-2 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              title={`打开视频链接: ${videoUrl}`}
+            >
+              打开链接
+            </a>
+          </div>
+        )
+      },
+      size: 90,
+      enableResizing: true,
+      enableSorting: false,
+      enableColumnFilter: false,
+    }
+
+    // 字幕列定义
+    const subtitleColumn: ColumnDef<UnifiedDataItem> = {
+      id: 'subtitle',
+      header: ({ table }) => {
+        const selectedRows = table.getSelectedRowModel().rows
+        const selectedCount = selectedRows.length
+        return (
+          <div className="flex flex-col items-center w-full space-y-1">
+            <span className="text-sm font-medium text-center">字幕</span>
+            <button
+              onClick={() => {
+                // TODO: 集成字幕获取API
+                if (selectedCount > 0) {
+                  console.log(`准备获取 ${selectedCount} 行的字幕`, selectedRows.map(row => row.original))
+                } else {
+                  console.log('请先选择要获取字幕的行')
+                }
+              }}
+              className={`px-2 py-1 text-xs rounded transition-colors ${
+                selectedCount > 0 
+                  ? 'bg-blue-500 text-white hover:bg-blue-600' 
+                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              }`}
+              title={selectedCount > 0 ? `获取选中 ${selectedCount} 行的字幕` : '请先选择要获取字幕的行'}
+              disabled={selectedCount === 0}
+            >
+              获取字幕
+            </button>
+          </div>
+        )
+      },
+      cell: ({ row }) => (
+        <div className="text-gray-500 text-sm px-2 py-1 truncate">
+          {(row.original as any).subtitle || (
+            <span className="italic text-gray-400">暂无字幕</span>
+          )}
+        </div>
+      ),
+      size: 140,
+      enableResizing: true,
+      enableSorting: false,
+      enableColumnFilter: false,
+    }
     
-    // 合并系统列和动态列
-    return [...systemColumns, ...dynamicCols]
+    // 合并系统列和动态列，插入链接列和字幕列
+    const allColumns = [...systemColumns]
+    let linkInserted = false
+    let subtitleInserted = false
+    
+    // 遍历动态列，在缩略图列前插入链接列，在描述列后插入字幕列
+    dynamicCols.forEach((col) => {
+      // 如果当前列是缩略图列，先插入链接列
+      if (col.id === 'system_thumbnail' && !linkInserted) {
+        allColumns.push(linkColumn)
+        linkInserted = true
+      }
+      
+      allColumns.push(col)
+      
+      // 如果当前列是描述列，立即在其后插入字幕列
+      if (col.id === 'description' && !subtitleInserted) {
+        allColumns.push(subtitleColumn)
+        subtitleInserted = true
+      }
+    })
+    
+    // 如果没有找到缩略图列，将链接列添加到系统列之后
+    if (!linkInserted) {
+      allColumns.splice(2, 0, linkColumn) // 插入到序号列后面
+    }
+    
+    // 如果没有找到描述列，将字幕列添加到最后
+    if (!subtitleInserted) {
+      allColumns.push(subtitleColumn)
+    }
+    
+    return allColumns
   }, [dynamicColumns.tableColumns])
 
   // 数据更新函数
