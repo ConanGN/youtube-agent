@@ -594,39 +594,248 @@ export function YouTubeTable({
     },
   })
 
-  // 处理AI批处理结果
-  React.useEffect(() => {
-    if (batchState.status === BatchStatus.COMPLETED || batchState.status === BatchStatus.RUNNING) {
-      // 将AI结果应用到表格数据中
-      const updatedData = tableData.map(row => {
-        const result = batchState.results.get(row.id)
+  // 处理AI批处理结果 - 优化版本：避免依赖竞争条件
+  const applyAIResults = React.useCallback(() => {
+    // 调试信息：输出批处理状态  
+    if (process.env.NODE_ENV === 'development') {
+      const currentTableData = tableData;
+      const tableRowIds = currentTableData.map(row => row.id);
+      const resultRowIds = Array.from(batchState.results.keys());
+      const matchingIds = tableRowIds.filter(id => batchState.results.has(id));
+      
+      console.log('🔄 执行AI结果应用:', {
+        status: batchState.status,
+        isVirtualColumn: batchState.isVirtualColumn,
+        targetColumnId: batchState.targetColumnId,
+        resultsCount: batchState.results.size,
+        tableDataCount: currentTableData.length,
+        matchingIdsCount: matchingIds.length,
+        tableRowIds: tableRowIds,
+        resultRowIds: resultRowIds,
+        matchingIds: matchingIds,
+        allResults: Array.from(batchState.results.entries()),
+        sampleTableRow: currentTableData[0] ? {
+          id: currentTableData[0].id,
+          keys: Object.keys(currentTableData[0]),
+          targetColumnValue: currentTableData[0][batchState.targetColumnId as keyof UnifiedDataItem]
+        } : null
+      });
+      
+      // 检查ID匹配问题
+      if (matchingIds.length === 0 && batchState.results.size > 0) {
+        console.error('❌ 严重问题：结果ID与表格数据ID完全不匹配！', {
+          '表格ID示例': tableRowIds.slice(0, 3),
+          '结果ID示例': resultRowIds.slice(0, 3)
+        });
+        return; // 如果ID不匹配，直接返回
+      }
+    }
+    
+    // 获取当前最新的表格数据
+    setTableData(currentTableData => {
+      let hasChanges = false;
+      let updatedCount = 0;
+      
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📊 开始应用结果到表格数据 - 当前数据状态:', {
+          tableDataLength: currentTableData.length,
+          firstRowSample: currentTableData[0] ? {
+            id: currentTableData[0].id,
+            hasTargetColumn: batchState.targetColumnId in currentTableData[0],
+            targetColumnCurrentValue: currentTableData[0][batchState.targetColumnId as keyof UnifiedDataItem]
+          } : null
+        });
+      }
+      
+      const updatedData = currentTableData.map((row, index) => {
+        const result = batchState.results.get(row.id);
+        
+        if (process.env.NODE_ENV === 'development' && result) {
+          console.log(`🔍 处理第${index + 1}行 (ID: ${row.id}):`, {
+            hasResult: !!result,
+            resultStatus: result?.status,
+            resultOutput: result?.output?.substring(0, 50) + '...',
+            targetColumnId: batchState.targetColumnId,
+            isVirtualColumn: batchState.isVirtualColumn
+          });
+        }
+        
         if (result && result.status === 'ok') {
-          // 找到对应的AI列键
-          const aiColumnKey = Array.from(aiColumns).find(key => 
-            batchState.jobId && key.includes(batchState.jobId.split('_').pop() || '')
-          )
-          if (aiColumnKey) {
-            return {
-              ...row,
-              [aiColumnKey]: result.output,
-              isEdited: true,
+          // 区分虚拟列模式和覆盖模式
+          if (batchState.isVirtualColumn) {
+            // 虚拟列模式：找到对应的AI列键
+            const aiColumnKey = Array.from(aiColumns).find(key => 
+              batchState.jobId && key.includes(batchState.jobId.split('_').pop() || '')
+            );
+            if (aiColumnKey) {
+              hasChanges = true;
+              updatedCount++;
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`✅ 虚拟列模式 - 更新行 ${row.id} 的列 ${aiColumnKey}`);
+              }
+              return {
+                ...row,
+                [aiColumnKey]: result.output,
+                isEdited: true,
+              };
+            }
+          } else {
+            // 覆盖模式：直接更新目标列
+            if (batchState.targetColumnId) {
+              hasChanges = true;
+              updatedCount++;
+              const updatedRow = {
+                ...row,
+                [batchState.targetColumnId]: result.output,
+                isEdited: true,
+              };
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log(`✅ 覆盖模式 - 更新行 ${row.id} 的列 ${batchState.targetColumnId}:`, {
+                  oldValue: row[batchState.targetColumnId as keyof UnifiedDataItem],
+                  newValue: result.output,
+                  updatedRow: {
+                    id: updatedRow.id,
+                    [batchState.targetColumnId]: updatedRow[batchState.targetColumnId as keyof UnifiedDataItem]
+                  },
+                  // 🔧 新增调试信息：检查字段是否真的被设置
+                  fieldExists: batchState.targetColumnId in updatedRow,
+                  fieldValue: updatedRow[batchState.targetColumnId as keyof UnifiedDataItem]
+                });
+              }
+              return updatedRow;
+            } else {
+              if (process.env.NODE_ENV === 'development') {
+                console.warn(`⚠️ 覆盖模式但 targetColumnId 为空`);
+              }
             }
           }
         }
-        return row
-      })
+        return row;
+      });
       
-      if (JSON.stringify(updatedData) !== JSON.stringify(tableData)) {
-        setTableData(updatedData)
+      if (hasChanges) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`🎉 成功应用AI批处理结果到表格数据！更新了 ${updatedCount} 行`, {
+            originalDataLength: currentTableData.length,
+            updatedDataLength: updatedData.length,
+            firstUpdatedRow: updatedData.find(row => 
+              batchState.results.has(row.id) && 
+              batchState.results.get(row.id)?.status === 'ok'
+            ),
+            targetColumnInFirstRow: updatedData[0] ? {
+              id: updatedData[0].id,
+              [batchState.targetColumnId || 'unknown']: updatedData[0][batchState.targetColumnId as keyof UnifiedDataItem]
+            } : null
+          });
+          
+          // 验证更新后的数据
+          const verifyRow = updatedData.find(row => 
+            batchState.results.has(row.id) && 
+            batchState.results.get(row.id)?.status === 'ok'
+          );
+          if (verifyRow && batchState.targetColumnId) {
+            console.log('✅ 数据验证 - 更新后的行:', {
+              rowId: verifyRow.id,
+              targetColumn: batchState.targetColumnId,
+              newValue: verifyRow[batchState.targetColumnId as keyof UnifiedDataItem],
+              fullRow: verifyRow
+            });
+          }
+        }
+        
+        // 强制触发重新渲染 - 创建完全新的数组引用
+        const forceUpdatedData = updatedData.map(row => ({ ...row }));
+        return forceUpdatedData;
+      } else {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('📝 没有需要应用的AI批处理结果', {
+            resultsSize: batchState.results.size,
+            targetColumnId: batchState.targetColumnId,
+            isVirtualColumn: batchState.isVirtualColumn,
+            sampleResult: batchState.results.size > 0 ? Array.from(batchState.results.entries())[0] : null,
+            // 检查是否有匹配的行
+            tableDataIds: currentTableData.map(row => row.id).slice(0, 3),
+            resultIds: Array.from(batchState.results.keys()).slice(0, 3)
+          });
+        }
+        return currentTableData;
       }
+    });
+  }, [batchState.results, batchState.isVirtualColumn, batchState.targetColumnId, batchState.jobId, aiColumns]);
+
+  // 监听AI批处理完成状态 - 强制更新版本
+  React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔄 AI批处理状态监听:', {
+        status: batchState.status,
+        resultsSize: batchState.results.size,
+        targetColumnId: batchState.targetColumnId,
+        isVirtualColumn: batchState.isVirtualColumn,
+        jobId: batchState.jobId
+      });
     }
-  }, [batchState, tableData, aiColumns])
+    
+    if (batchState.status === BatchStatus.COMPLETED && batchState.results.size > 0) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🎯 检测到AI批处理完成，强制应用结果...');
+        console.log('当前表格数据行数:', tableData.length);
+        console.log('表格数据示例:', tableData.slice(0, 2));
+      }
+      
+      // 立即应用结果，不使用setTimeout
+      applyAIResults();
+      
+      // 也使用setTimeout作为备份
+      setTimeout(() => {
+        console.log('🔄 备份：再次尝试应用AI结果');
+        applyAIResults();
+      }, 100);
+      
+      // 强制重新渲染表格
+      setTimeout(() => {
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔄 强制表格重新渲染');
+        }
+        // 通过改变表格的key来强制重新渲染
+        table.resetRowSelection();
+      }, 200);
+    }
+  }, [batchState.status, batchState.results.size, applyAIResults, table]);
+
+  // 监听AI批处理运行时的进度更新
+  React.useEffect(() => {
+    if (batchState.status === BatchStatus.RUNNING && batchState.results.size > 0) {
+      // 实时应用已完成的结果
+      applyAIResults();
+    }
+  }, [batchState.results.size, applyAIResults]);
   
   
   // 同步数据变化到父组件
   React.useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      // 检查是否有AI列数据
+      const hasAIData = tableData.some(row => 
+        batchState.targetColumnId && row[batchState.targetColumnId as keyof UnifiedDataItem]
+      );
+      
+      console.log('📤 同步表格数据到父组件:', {
+        tableDataLength: tableData.length,
+        hasOnDataChange: !!onDataChange,
+        targetColumnId: batchState.targetColumnId,
+        hasAIData: hasAIData,
+        sampleRowWithTarget: batchState.targetColumnId ? tableData.find(row => 
+          row[batchState.targetColumnId as keyof UnifiedDataItem]
+        ) : null,
+        allRowsTargetColumnValues: batchState.targetColumnId ? tableData.map(row => ({
+          id: row.id,
+          value: row[batchState.targetColumnId as keyof UnifiedDataItem]
+        })) : []
+      });
+    }
     onDataChange?.(tableData)
-  }, [tableData, onDataChange])
+  }, [tableData, onDataChange, batchState.targetColumnId])
 
   // 进一步稳定化availableColumns，避免每次渲染都创建新的对象数组
   const stableAvailableColumns = React.useMemo(() => {
@@ -731,10 +940,20 @@ export function YouTubeTable({
     }
     
     if (process.env.NODE_ENV === 'development') {
+      const tableIds = tableData.map(row => row.id);
+      const submitIds = columnData.map(item => item.rowId);
+      const matchingSubmitIds = submitIds.filter(id => tableIds.includes(id));
+      
       console.log('DEBUG - handleAIBatchSubmit: 最终使用的数据:', {
         columnDataCount: columnData.length,
         processingScope: processingInfo.processingScope,
-        sourceColumnId: config.sourceColumnId
+        sourceColumnId: config.sourceColumnId,
+        targetColumnId: selectedColumnForAI.id,
+        tableDataCount: tableData.length,
+        submitIds: submitIds,
+        tableIds: tableIds.slice(0, 5),
+        matchingSubmitIdsCount: matchingSubmitIds.length,
+        idMatchRatio: `${matchingSubmitIds.length}/${submitIds.length}`
       });
     }
     
@@ -752,8 +971,30 @@ export function YouTubeTable({
         ...prev,
         [columnKey]: true,
       }))
+      
+      // 🔧 修复：将AI列添加到动态列系统中，确保表格能正确显示
+      const longTextTemplate = COLUMN_TEMPLATES.find(t => t.id === 'long-text')
+      if (longTextTemplate) {
+        try {
+          dynamicColumns.addColumn(longTextTemplate, {
+            id: columnKey,
+            title: `AI处理结果 - ${selectedColumnForAI.name}`,
+            accessorKey: columnKey,
+            width: 300,
+            minWidth: 200,
+            maxWidth: 600,
+            visible: true,
+            isAIColumn: true, // 标记为AI列
+          })
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`✅ AI列已添加到动态列系统: ${columnKey}`)
+          }
+        } catch (error) {
+          console.error('添加AI列到动态列系统失败:', error)
+        }
+      }
     })
-  }, [selectedColumnForAI, getProcessingInfo, getNewColumnKey, startBatch])
+  }, [selectedColumnForAI, getProcessingInfo, getNewColumnKey, startBatch, dynamicColumns.addColumn])
 
   const stableProcessingScope = React.useMemo(() => {
     const selectedCount = Object.keys(rowSelection).filter(key => rowSelection[key]).length
@@ -902,7 +1143,7 @@ export function YouTubeTable({
                               onClick={(e) => {
                                 e.stopPropagation()
                                 setSelectedColumnForAI({
-                                  id: header.column.id,
+                                  id: (header.column.columnDef.accessorKey as string) || header.column.id,
                                   name: typeof header.column.columnDef.header === 'string' 
                                     ? header.column.columnDef.header
                                     : header.column.id

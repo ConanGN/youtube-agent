@@ -60,6 +60,8 @@ export interface BatchState {
   isVirtualColumn: boolean;
   virtualDrafts: Map<string, VirtualColumnDraft>; // columnKey -> draft
   currentDraftKey: string | null;
+  // 新增：目标列ID（用于overwrite模式）
+  targetColumnId: string | null;
 }
 
 // Hook返回类型
@@ -119,6 +121,8 @@ export function useAIBatch(): UseAIBatchReturn {
     isVirtualColumn: false,
     virtualDrafts: new Map(),
     currentDraftKey: null,
+    // 新增目标列ID
+    targetColumnId: null,
   });
   
   // 存储当前请求的数据和配置，用于重试
@@ -170,6 +174,17 @@ export function useAIBatch(): UseAIBatchReturn {
                 error: sseEvent.data.error,
               };
               
+              // 调试信息：记录每个结果
+              if (process.env.NODE_ENV === 'development') {
+                console.log('📥 收到AI结果:', {
+                  rowId: result.rowId,
+                  status: result.status,
+                  outputLength: result.output.length,
+                  output: result.output.substring(0, 100) + (result.output.length > 100 ? '...' : ''),
+                  error: result.error
+                });
+              }
+              
               // 创建新的Map对象，确保不可变性
               newState.results = new Map(prev.results);
               newState.results.set(sseEvent.data.rowId, result);
@@ -197,6 +212,19 @@ export function useAIBatch(): UseAIBatchReturn {
               newState.progress = sseEvent.data.progress;
             }
             
+            // 调试信息：批处理完成
+            if (process.env.NODE_ENV === 'development') {
+              console.log('🎉 AI批处理完成:', {
+                isVirtualColumn: newState.isVirtualColumn,
+                targetColumnId: newState.targetColumnId,
+                resultsCount: newState.results.size,
+                jobId: newState.jobId,
+                successfulResults: Array.from(newState.results.entries()).filter(([_, result]) => result.status === 'ok').length,
+                failedResults: Array.from(newState.results.entries()).filter(([_, result]) => result.status === 'failed').length,
+                sampleResults: Array.from(newState.results.entries()).slice(0, 2)
+              });
+            }
+            
             // 如果是虚拟列模式，创建草稿
             if (newState.isVirtualColumn && newState.jobId && currentRequestRef.current) {
               const { columnId, config, onVirtualColumnCreated } = currentRequestRef.current;
@@ -219,6 +247,11 @@ export function useAIBatch(): UseAIBatchReturn {
               // 通知表格组件创建虚拟列
               if (onVirtualColumnCreated) {
                 setTimeout(() => onVirtualColumnCreated(columnKey), 0);
+              }
+            } else {
+              // 覆盖模式：直接应用结果到表格
+              if (process.env.NODE_ENV === 'development') {
+                console.log('覆盖模式批处理完成，等待表格组件应用结果');
               }
             }
             break;
@@ -275,6 +308,8 @@ export function useAIBatch(): UseAIBatchReturn {
         isVirtualColumn: isVirtualMode,
         virtualDrafts: isVirtualMode ? prev.virtualDrafts : new Map(),
         currentDraftKey: null,
+        // 设置目标列ID（用于overwrite模式）
+        targetColumnId: columnId,
       }));
       
       // 发送POST请求到SSE端点
@@ -393,6 +428,7 @@ export function useAIBatch(): UseAIBatchReturn {
       isVirtualColumn: false,
       virtualDrafts: new Map(),
       currentDraftKey: null,
+      targetColumnId: null,
     });
     
     currentRequestRef.current = null;

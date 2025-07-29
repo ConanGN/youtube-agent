@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { X, Play, Calculator, AlertCircle, CheckCircle, Info } from 'lucide-react';
+import { X, Play, Calculator, AlertCircle, CheckCircle, Info, AlertTriangle } from 'lucide-react';
 import { 
   validateTemplate, 
   getAllPresetTemplates, 
@@ -111,8 +111,8 @@ export default function AIPromptDrawer({
   const [maxConcurrency, setMaxConcurrency] = useState(3);
   const [dryRun, setDryRun] = useState(false); // 默认执行实际处理
   const [selectedPreset, setSelectedPreset] = useState<string>('summary'); // 默认选择摘要模板
-  // 新增：写入目标选择
-  const [writeTarget, setWriteTarget] = useState<'virtual' | 'overwrite' | 'append'>('virtual');
+  // 新增：写入目标选择 - 修改：固定为覆盖当前列模式
+  const [writeTarget, setWriteTarget] = useState<'virtual' | 'overwrite' | 'append'>('overwrite');
   // 新增：数据源列选择状态，默认为目标列（保持向后兼容）
   const [sourceColumnId, setSourceColumnId] = useState<string>(columnId);
   
@@ -129,57 +129,47 @@ export default function AIPromptDrawer({
     setSourceColumnId(columnId);
   }, [columnId]);
 
-  // 统一的数据提取函数（供预览和实际处理使用）
+  // 统一的数据提取函数（供预览和实际处理使用） - 修复：精确的数据提取逻辑
   const extractDataFromRow = React.useCallback((rowData: any, columnId: string) => {
     // 首先查找对应的列配置以获取accessorKey
     const columnConfig = availableColumns.find(col => col.id === columnId);
     
-    // 构建尝试的键列表（按优先级排序）
+    // 构建尝试的键列表（按优先级排序）- 修复aggressive fallback问题
     const keysToTry = [];
     
-    // 1. 优先使用列配置中的accessorKey
+    // 1. 优先使用列配置中的accessorKey（如果存在且明确定义）
     if (columnConfig && columnConfig.accessorKey) {
       keysToTry.push(columnConfig.accessorKey);
-    }
-    
-    // 2. 尝试使用columnId直接访问
-    keysToTry.push(columnId);
-    
-    // 3. 基于列标题的智能映射
-    if (columnConfig) {
-      const titleMappings: Record<string, string[]> = {
-        '描述': ['description', 'desc', 'content', 'text', 'body'],
-        '标题': ['title', 'name', 'heading', 'subject'],
-        '缩略图': ['thumbnail', 'image', 'img', 'picture', 'photo'],
-        '频道': ['channelTitle', 'channel', 'channelName'],
-        '发布时间': ['publishedAt', 'published', 'date', 'publishTime'],
-        '观看数': ['viewCount', 'views', 'count', 'playCount']
-      };
       
-      if (titleMappings[columnConfig.title]) {
-        keysToTry.push(...titleMappings[columnConfig.title]);
+      // 如果有明确的accessorKey，就不要进行过度的fallback
+      // 只有当accessorKey确实无效时，才尝试columnId
+      if (columnConfig.accessorKey !== columnId) {
+        keysToTry.push(columnId);
       }
-    }
-    
-    // 4. 如果columnId是动态生成的ID，尝试常见的字段名
-    if (columnId.includes('col_')) {
-      keysToTry.push('description', 'title', 'content', 'text', 'name');
-    }
-    
-    // 5. 如果columnId包含系统前缀，尝试去掉前缀
-    if (columnId.startsWith('system_')) {
-      keysToTry.push(columnId.replace('system_', ''));
-    }
-    
-    // 6. 通用字段映射作为后备
-    const fieldMappings: Record<string, string[]> = {
-      'description': ['description', 'desc', 'content', 'text', 'body', 'summary'],
-      'title': ['title', 'name', 'heading', 'subject', 'label'],
-      'thumbnail': ['thumbnail', 'image', 'img', 'picture', 'photo', 'cover']
-    };
-    
-    if (fieldMappings[columnId]) {
-      keysToTry.push(...fieldMappings[columnId]);
+    } else {
+      // 2. 没有accessorKey时，直接使用columnId
+      keysToTry.push(columnId);
+      
+      // 3. 只对系统基础列进行智能映射，不对用户自定义列进行aggressive fallback
+      if (columnConfig && !columnId.includes('col_')) {
+        const titleMappings: Record<string, string[]> = {
+          '描述': ['description', 'desc', 'content', 'text', 'body'],
+          '标题': ['title', 'name', 'heading', 'subject'],
+          '缩略图': ['thumbnail', 'image', 'img', 'picture', 'photo'],
+          '频道': ['channelTitle', 'channel', 'channelName'],
+          '发布时间': ['publishedAt', 'published', 'date', 'publishTime'],
+          '观看数': ['viewCount', 'views', 'count', 'playCount']
+        };
+        
+        if (titleMappings[columnConfig.title]) {
+          keysToTry.push(...titleMappings[columnConfig.title]);
+        }
+      }
+      
+      // 4. 如果columnId包含系统前缀，尝试去掉前缀（仅限系统列）
+      if (columnId.startsWith('system_')) {
+        keysToTry.push(columnId.replace('system_', ''));
+      }
     }
     
     // 去重并尝试每个可能的key
@@ -209,32 +199,37 @@ export default function AIPromptDrawer({
       // 直接在这里定义数据提取逻辑，避免函数引用依赖
       const columnConfig = availableColumns.find(col => col.id === sourceColumnId);
       
-      // 构建尝试的键列表
+      // 构建尝试的键列表 - 修复：更精确的数据提取逻辑
       const keysToTry = [];
       
-      // 1. 优先使用列配置中的accessorKey
+      // 1. 优先使用列配置中的accessorKey（如果存在且明确定义）
       if (columnConfig && columnConfig.accessorKey) {
         keysToTry.push(columnConfig.accessorKey);
-      }
-      
-      // 2. 尝试使用columnId直接访问
-      keysToTry.push(sourceColumnId);
-      
-      // 3. 基于列标题的智能映射
-      if (columnConfig) {
-        const titleMappings: Record<string, string[]> = {
-          '描述': ['description', 'desc', 'content', 'text', 'body'],
-          '标题': ['title', 'name', 'heading', 'subject'],
-        };
         
-        if (titleMappings[columnConfig.title]) {
-          keysToTry.push(...titleMappings[columnConfig.title]);
+        // 如果有明确的accessorKey，就不要进行过度的fallback
+        // 只有当accessorKey确实无效时，才尝试columnId
+        if (columnConfig.accessorKey !== sourceColumnId) {
+          keysToTry.push(sourceColumnId);
         }
-      }
-      
-      // 4. 常见字段名后备
-      if (sourceColumnId.includes('col_')) {
-        keysToTry.push('description', 'title', 'content', 'text');
+      } else {
+        // 2. 没有accessorKey时，直接使用columnId
+        keysToTry.push(sourceColumnId);
+        
+        // 3. 只对系统基础列进行智能映射，不对用户自定义列进行aggressive fallback
+        if (columnConfig && !sourceColumnId.includes('col_')) {
+          const titleMappings: Record<string, string[]> = {
+            '描述': ['description', 'desc', 'content', 'text', 'body'],
+            '标题': ['title', 'name', 'heading', 'subject'],
+            '缩略图': ['thumbnail', 'image', 'img', 'picture', 'photo'],
+            '频道': ['channelTitle', 'channel', 'channelName'],
+            '发布时间': ['publishedAt', 'published', 'date', 'publishTime'],
+            '观看数': ['viewCount', 'views', 'count', 'playCount']
+          };
+          
+          if (titleMappings[columnConfig.title]) {
+            keysToTry.push(...titleMappings[columnConfig.title]);
+          }
+        }
       }
       
       // 去重并尝试每个可能的key
@@ -245,6 +240,20 @@ export default function AIPromptDrawer({
         if (row.data && row.data[key] !== undefined && row.data[key] !== null) {
           content = String(row.data[key] || '');
           break;
+        }
+      }
+      
+      // 调试信息：记录数据提取结果
+      if (process.env.NODE_ENV === 'development') {
+        const isEmpty = !content || content.trim() === '';
+        if (isEmpty && columnConfig) {
+          console.log(`DEBUG - 数据源"${columnConfig.title}" (${sourceColumnId}) 在第${row.rowIndex + 1}行无数据:`, {
+            columnId: sourceColumnId,
+            columnTitle: columnConfig.title,
+            accessorKey: columnConfig.accessorKey,
+            keysAttempted: uniqueKeys,
+            rowData: Object.keys(row.data || {})
+          });
         }
       }
       
@@ -529,26 +538,7 @@ export default function AIPromptDrawer({
                 </p>
               </div>
               
-              {/* 写入目标选择 */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  写入目标
-                </label>
-                <select
-                  value={writeTarget}
-                  onChange={(e) => setWriteTarget(e.target.value as 'virtual' | 'overwrite' | 'append')}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="virtual">虚拟列（草稿模式，默认）</option>
-                  <option value="overwrite">覆盖原列（带版本备份）</option>
-                  <option value="append">追加到原列（分隔符拼接）</option>
-                </select>
-                <div className="text-xs text-gray-500 mt-1">
-                  {writeTarget === 'virtual' && '创建虚拟列草稿，不修改原数据，可逐行接受或全部提交'}
-                  {writeTarget === 'overwrite' && '先备份到版本表，然后覆盖原列数据，支持回滚'}
-                  {writeTarget === 'append' && '在原列内容后面用分隔符追加AI结果，保留原内容'}
-                </div>
-              </div>
+              {/* 写入目标已固定为覆盖当前列模式，移除选择UI */}
 
               {/* 执行模式选择 */}
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
@@ -600,7 +590,31 @@ export default function AIPromptDrawer({
                 {/* 预览数据区域 */}
                 <div className="bg-gray-50 rounded-lg p-3 max-h-64 overflow-y-auto">
                   {previewData.length > 0 ? (
-                    <div className="space-y-2">
+                    <>
+                      {/* 空数据警告 */}
+                      {(() => {
+                        const emptyCount = previewData.filter(item => item.isEmpty).length;
+                        const totalCount = previewData.length;
+                        const emptyRatio = emptyCount / totalCount;
+                        
+                        if (emptyRatio >= 0.5) { // 如果50%以上的数据为空
+                          return (
+                            <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded-lg">
+                              <div className="flex items-center text-yellow-800 text-xs">
+                                <AlertTriangle className="w-4 h-4 mr-1" />
+                                <span className="font-medium">数据源提醒：</span>
+                              </div>
+                              <div className="text-yellow-700 text-xs mt-1">
+                                所选数据源列"{availableColumns.find(col => col.id === sourceColumnId)?.title || sourceColumnId}"中有 {emptyCount}/{totalCount} 行数据为空。
+                                {emptyRatio === 1 ? ' 建议选择包含实际数据的列作为数据源。' : ' 请确认这是期望的数据源。'}
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })()}
+                      
+                      <div className="space-y-2">
                       {previewData.map((item, index) => (
                         <div 
                           key={item.rowId} 
@@ -617,13 +631,14 @@ export default function AIPromptDrawer({
                             item.isEmpty ? 'text-red-600 italic' : 'text-gray-800'
                           }`}>
                             {item.isEmpty ? 
-                              '(该行数据为空，将跳过处理)' : 
+                              `(所选数据源列"${availableColumns.find(col => col.id === sourceColumnId)?.title || sourceColumnId}"在此行无数据，将跳过处理)` : 
                               (item.content.length > 150 ? `${item.content.slice(0, 150)}...` : item.content)
                             }
                           </div>
                         </div>
                       ))}
-                    </div>
+                      </div>
+                    </>
                   ) : (
                     <div className="text-center text-gray-500 py-6">
                       <Info className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -715,9 +730,7 @@ export default function AIPromptDrawer({
         {/* 底部按钮 */}
         <div className="flex items-center justify-between p-6 border-t bg-gray-50 flex-shrink-0">
           <div className="text-sm text-gray-500">
-            {writeTarget === 'virtual' && `将处理 ${dataCount} 条数据，生成草稿列：${columnId}_ai_draft_${Date.now().toString().slice(-6)}`}
-            {writeTarget === 'overwrite' && `将处理 ${dataCount} 条数据，覆盖列"${columnName}"（原数据将备份）`}
-            {writeTarget === 'append' && `将处理 ${dataCount} 条数据，追加到列"${columnName}"`}
+            将处理 ${dataCount} 条数据，覆盖列"${columnName}"（原数据将备份）
           </div>
           <div className="flex gap-3">
             <button
