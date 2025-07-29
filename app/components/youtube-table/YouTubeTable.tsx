@@ -312,9 +312,10 @@ export function YouTubeTable({
   )
 
   // 字幕批量抓取处理函数 - 使用useCallback稳定函数引用
-  const handleBatchSubtitleFetch = React.useCallback(async () => {
-    const selectedIds = Object.keys(rowSelection).filter(key => rowSelection[key])
-    const selectedVideos = tableData.filter(item => selectedIds.includes(item.id))
+  const handleBatchSubtitleFetch = React.useCallback(async (table: any) => {
+    // 使用与按钮状态检测一致的方式获取选中行
+    const selectedRows = table.getSelectedRowModel().rows
+    const selectedVideos = selectedRows.map(row => row.original)
     
     // 限制最多10个视频
     if (selectedVideos.length > 10) {
@@ -345,14 +346,14 @@ export function YouTubeTable({
       
       // 调用字幕抓取API
       const response = await fetch(`/api/subtitles?${videoIds.map(id => `id=${id}`).join('&')}`)
-      const responseData = await response.json() as { error?: string; results?: any[] }
       
       if (!response.ok) {
-        throw new Error(responseData.error || '字幕抓取失败')
+        const errorData = await response.json()
+        throw new Error(errorData.error || '字幕抓取失败')
       }
       
-      // 更新表格数据
-      const results = responseData.results || []
+      // API直接返回结果数组，不是包装在results字段中
+      const results = await response.json() as any[]
       const finalData = tableData.map(item => {
         const subtitleResult = results.find((result: any) => result.id === item.id)
         if (subtitleResult) {
@@ -402,7 +403,7 @@ export function YouTubeTable({
     } finally {
       setSubtitleFetching(false)
     }
-  }, [rowSelection, tableData, onDataChange])
+  }, [tableData, onDataChange])
 
   // 同步外部数据变化
   React.useEffect(() => {
@@ -538,38 +539,140 @@ export function YouTubeTable({
           <div className="flex flex-col items-center w-full space-y-1">
             <span className="text-sm font-medium text-center">字幕</span>
             <button
-              onClick={() => {
-                // TODO: 集成字幕获取API
-                if (selectedCount > 0) {
-                  console.log(`准备获取 ${selectedCount} 行的字幕`, selectedRows.map(row => row.original))
-                } else {
-                  console.log('请先选择要获取字幕的行')
-                }
-              }}
+              onClick={() => handleBatchSubtitleFetch(table)}
               className={`px-2 py-1 text-xs rounded transition-colors ${
-                selectedCount > 0 
+                selectedCount > 0 && !subtitleFetching
                   ? 'bg-blue-500 text-white hover:bg-blue-600' 
                   : 'bg-gray-300 text-gray-500 cursor-not-allowed'
               }`}
-              title={selectedCount > 0 ? `获取选中 ${selectedCount} 行的字幕` : '请先选择要获取字幕的行'}
-              disabled={selectedCount === 0}
+              title={
+                subtitleFetching 
+                  ? '正在获取字幕...'
+                  : selectedCount > 0 
+                    ? `获取选中 ${selectedCount} 行的字幕` 
+                    : '请先选择要获取字幕的行'
+              }
+              disabled={selectedCount === 0 || subtitleFetching}
             >
-              获取字幕
+              {subtitleFetching ? '获取中...' : '获取字幕'}
             </button>
           </div>
         )
       },
-      cell: ({ row }) => (
-        <div className="text-gray-500 text-sm px-2 py-1 truncate">
-          {(row.original as any).subtitle || (
-            <span className="italic text-gray-400">暂无字幕</span>
-          )}
-        </div>
-      ),
-      size: 140,
+      cell: ({ row }) => {
+        const subtitles = row.original.subtitles
+        const status = (row.original as any).subtitlesStatus
+        
+        // 双击编辑处理函数
+        const handleDoubleClick = () => {
+          // 如果有字幕数据，打开编辑弹窗
+          if (subtitles && subtitles.cues && subtitles.cues.length > 0) {
+            handleOpenSubtitleEdit(row.original.id, subtitles)
+          } else if (subtitles && subtitles.rawText) {
+            // 如果有原始文本（已编辑过的字幕），直接编辑
+            setSubtitleEditDialog({
+              isOpen: true,
+              videoId: row.original.id,
+              currentSubtitles: subtitles.rawText
+            })
+          } else {
+            // 如果没有字幕，创建新的空白编辑
+            setSubtitleEditDialog({
+              isOpen: true,
+              videoId: row.original.id,
+              currentSubtitles: ''
+            })
+          }
+        }
+        
+        if (status === 'loading') {
+          return (
+            <div className="flex items-center px-2 py-1 text-xs text-blue-600">
+              <div className="animate-spin rounded-full h-3 w-3 border-b border-blue-600 mr-2"></div>
+              加载中...
+            </div>
+          )
+        }
+        
+        if (status === 'error') {
+          const error = (row.original as any).subtitlesError
+          return (
+            <div 
+              className="px-2 py-1 text-xs text-red-600 truncate cursor-pointer hover:bg-red-50" 
+              title={`${error} - 双击编辑字幕`}
+              onDoubleClick={handleDoubleClick}
+            >
+              获取失败: {error}
+            </div>
+          )
+        }
+        
+        if (status === 'empty') {
+          return (
+            <div 
+              className="px-2 py-1 text-xs text-gray-400 italic cursor-pointer hover:bg-gray-50" 
+              title="双击编辑字幕"
+              onDoubleClick={handleDoubleClick}
+            >
+              无可用字幕
+            </div>
+          )
+        }
+        
+        if (subtitles && subtitles.cues && subtitles.cues.length > 0) {
+          const cueCount = subtitles.cues.length
+          const languages = subtitles.languages || []
+          const preview = subtitles.cues[0]?.text?.substring(0, 30) + '...'
+          
+          return (
+            <div 
+              className="px-2 py-1 text-xs cursor-pointer hover:bg-blue-50" 
+              title={`${preview} - 双击编辑字幕`}
+              onDoubleClick={handleDoubleClick}
+            >
+              <div className="text-green-600 font-medium">
+                {cueCount} 条字幕
+              </div>
+              <div className="text-gray-500 truncate">
+                {languages.length > 1 ? `[${languages.join(', ')}] ` : ''}{preview}
+              </div>
+            </div>
+          )
+        }
+        
+        // 显示已编辑的原始文本（如果有）
+        if (subtitles && subtitles.rawText) {
+          const preview = subtitles.rawText.substring(0, 50) + (subtitles.rawText.length > 50 ? '...' : '')
+          return (
+            <div 
+              className="px-2 py-1 text-xs cursor-pointer hover:bg-blue-50" 
+              title={`${preview} - 双击编辑字幕`}
+              onDoubleClick={handleDoubleClick}
+            >
+              <div className="text-blue-600 font-medium">
+                已编辑字幕
+              </div>
+              <div className="text-gray-500 truncate">
+                {preview}
+              </div>
+            </div>
+          )
+        }
+        
+        return (
+          <div 
+            className="text-gray-400 text-xs px-2 py-1 italic cursor-pointer hover:bg-gray-50" 
+            title="双击编辑字幕"
+            onDoubleClick={handleDoubleClick}
+          >
+            暂无字幕
+          </div>
+        )
+      },
+      size: 160,
       enableResizing: true,
       enableSorting: false,
-      enableColumnFilter: false,
+      enableColumnFilter: true, // 启用列搜索功能
     }
     
     // 合并系统列和动态列，插入链接列和字幕列
@@ -605,7 +708,7 @@ export function YouTubeTable({
     }
     
     return allColumns
-  }, [dynamicColumns.tableColumns])
+  }, [dynamicColumns.tableColumns, handleBatchSubtitleFetch, subtitleFetching])
 
   // 数据更新函数
   const updateData = React.useCallback(
