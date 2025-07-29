@@ -735,12 +735,14 @@ export function YouTubeTable({
             batchState.results.get(row.id)?.status === 'ok'
           );
           if (verifyRow && batchState.targetColumnId) {
-            console.log('✅ 数据验证 - 更新后的行:', {
-              rowId: verifyRow.id,
-              targetColumn: batchState.targetColumnId,
-              newValue: verifyRow[batchState.targetColumnId as keyof UnifiedDataItem],
-              fullRow: verifyRow
-            });
+            if (process.env.NODE_ENV === 'development') {
+              console.log('✅ 数据验证 - 更新后的行:', {
+                rowId: verifyRow.id,
+                targetColumn: batchState.targetColumnId,
+                newValue: verifyRow[batchState.targetColumnId as keyof UnifiedDataItem],
+                fullRow: verifyRow
+              });
+            }
           }
         }
         
@@ -788,7 +790,9 @@ export function YouTubeTable({
       
       // 也使用setTimeout作为备份
       setTimeout(() => {
-        console.log('🔄 备份：再次尝试应用AI结果');
+        if (process.env.NODE_ENV === 'development') {
+          console.log('🔄 备份：再次尝试应用AI结果');
+        }
         applyAIResults();
       }, 100);
       

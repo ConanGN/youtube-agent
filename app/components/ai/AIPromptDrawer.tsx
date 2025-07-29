@@ -99,10 +99,7 @@ export default function AIPromptDrawer({
   // 调试：仅在首次打开时输出关键信息
   React.useEffect(() => {
     if (isOpen && process.env.NODE_ENV === 'development') {
-      console.log('=== AIPromptDrawer Opened ===');
-      console.log('availableColumns count:', availableColumns.length);
-      console.log('selectedRows count:', selectedRows.length);
-      console.log('targetColumn:', columnId, columnName);
+      // AI提示抽屉已打开，准备处理批量任务
     }
   }, [isOpen]); // 只在isOpen变化时执行，避免重复输出
   // 状态管理
@@ -243,19 +240,7 @@ export default function AIPromptDrawer({
         }
       }
       
-      // 调试信息：记录数据提取结果
-      if (process.env.NODE_ENV === 'development') {
-        const isEmpty = !content || content.trim() === '';
-        if (isEmpty && columnConfig) {
-          console.log(`DEBUG - 数据源"${columnConfig.title}" (${sourceColumnId}) 在第${row.rowIndex + 1}行无数据:`, {
-            columnId: sourceColumnId,
-            columnTitle: columnConfig.title,
-            accessorKey: columnConfig.accessorKey,
-            keysAttempted: uniqueKeys,
-            rowData: Object.keys(row.data || {})
-          });
-        }
-      }
+      // 移除了频繁的DEBUG日志输出以优化控制台性能
       
       return {
         rowId: row.rowId,
@@ -347,11 +332,7 @@ export default function AIPromptDrawer({
       }));
     
     if (process.env.NODE_ENV === 'development') {
-      console.log('DEBUG - handleSubmit extractedData:', {
-        previewDataCount: previewData.length,
-        extractedDataCount: extractedData.length,
-        firstExtractedItem: extractedData[0]
-      });
+      // 开始提交AI批量处理任务
     }
     
     onSubmit({
