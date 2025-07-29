@@ -1034,7 +1034,7 @@ export function YouTubeTable({
           </div>
         </div>
         
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 relative">
           {/* AI批处理状态显示 */}
           {batchState.status !== BatchStatus.IDLE && (
             <div className="flex items-center space-x-2 px-3 py-2 bg-blue-50 rounded-lg">

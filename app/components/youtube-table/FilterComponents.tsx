@@ -259,8 +259,21 @@ interface ColumnVisibilityProps {
 export function ColumnVisibility({ table }: ColumnVisibilityProps) {
   const [isOpen, setIsOpen] = useState(false)
 
+  // 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (isOpen && !target.closest('.column-visibility-dropdown')) {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
   return (
-    <div className="relative">
+    <div className="relative column-visibility-dropdown">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -269,7 +282,7 @@ export function ColumnVisibility({ table }: ColumnVisibilityProps) {
       </button>
       
       {isOpen && (
-        <div className="absolute right-0 z-10 mt-2 w-56 bg-white border border-gray-200 rounded-md shadow-lg">
+        <div className="absolute right-0 z-[9999] mt-2 w-56 bg-white border border-gray-300 rounded-md shadow-xl ring-1 ring-black ring-opacity-5">
           <div className="p-3">
             <div className="flex items-center mb-2">
               <input
