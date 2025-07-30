@@ -35,10 +35,9 @@ import { SubtitleEditDialog } from './SubtitleEditDialog'
 import {
   Filter,
   GlobalFilter,
-  ColumnVisibility,
   AdvancedFilterPanel,
 } from './FilterComponents'
-import { ColumnManager } from './ColumnManager'
+import { UnifiedColumnControl } from './UnifiedColumnControl'
 import {
   ColumnHeaderWithSubtitle,
   shouldShowSubtitleHeader,
@@ -391,7 +390,7 @@ export function YouTubeTable({
     async (table: any) => {
       // 使用与按钮状态检测一致的方式获取选中行
       const selectedRows = table.getSelectedRowModel().rows
-      const selectedVideos = selectedRows.map((row) => row.original)
+      const selectedVideos = selectedRows.map((row: any) => row.original)
 
       // 限制最多10个视频
       if (selectedVideos.length > 10) {
@@ -409,7 +408,7 @@ export function YouTubeTable({
       try {
         // 设置选中视频的加载状态
         const updatedData = tableData.map((item) => {
-          if (selectedVideos.some((video) => video.id === item.id)) {
+          if (selectedVideos.some((video: any) => video.id === item.id)) {
             return { ...item, subtitlesStatus: 'loading' as const }
           }
           return item
@@ -418,15 +417,15 @@ export function YouTubeTable({
         onDataChange?.(updatedData)
 
         // 提取视频ID
-        const videoIds = selectedVideos.map((video) => video.id)
+        const videoIds = selectedVideos.map((video: any) => video.id)
 
         // 调用字幕抓取API
         const response = await fetch(
-          `/api/subtitles?${videoIds.map((id) => `id=${id}`).join('&')}`
+          `/api/subtitles?${videoIds.map((id: string) => `id=${id}`).join('&')}`
         )
 
         if (!response.ok) {
-          const errorData = await response.json()
+          const errorData = await response.json() as { error?: string }
           throw new Error(errorData.error || '字幕抓取失败')
         }
 
@@ -467,7 +466,7 @@ export function YouTubeTable({
 
         // 设置错误状态
         const errorData = tableData.map((item) => {
-          if (selectedVideos.some((video) => video.id === item.id)) {
+          if (selectedVideos.some((video: any) => video.id === item.id)) {
             return {
               ...item,
               subtitlesStatus: 'error' as const,
@@ -773,9 +772,9 @@ export function YouTubeTable({
       size: 160,
       enableResizing: true,
       enableSorting: false,
-      enableColumnFilter: true, // 启用列搜索功能
+      enableColumnFilter: false, // 禁用列搜索功能 - UI已移除
       meta: {
-        filterVariant: 'text', // 明确指定为文本搜索类型
+        filterVariant: 'text', // 保留搜索类型配置以供未来使用
       },
     }
 
@@ -970,11 +969,11 @@ export function YouTubeTable({
             ? {
                 id: currentTableData[0].id,
                 hasTargetColumn:
-                  batchState.targetColumnId in currentTableData[0],
+                  batchState.targetColumnId ? batchState.targetColumnId in currentTableData[0] : false,
                 targetColumnCurrentValue:
-                  currentTableData[0][
+                  batchState.targetColumnId ? currentTableData[0][
                     batchState.targetColumnId as keyof UnifiedDataItem
-                  ],
+                  ] : undefined,
               }
             : null,
         })
@@ -1364,7 +1363,7 @@ export function YouTubeTable({
         },
         (columnKey: string) => {
           // 当虚拟列创建时，添加到AI列集合并显示
-          setAiColumns((prev) => new Set([...prev, columnKey]))
+          setAiColumns((prev) => new Set(Array.from(prev).concat([columnKey])))
           setColumnVisibility((prev) => ({
             ...prev,
             [columnKey]: true,
@@ -1384,7 +1383,7 @@ export function YouTubeTable({
                 minWidth: 200,
                 maxWidth: 600,
                 visible: true,
-                isAIColumn: true, // 标记为AI列
+                // isAIColumn: true, // 标记为AI列 - 类型中暂未定义
               })
               if (process.env.NODE_ENV === 'development') {
                 console.log(`✅ AI列已添加到动态列系统: ${columnKey}`)
@@ -1426,16 +1425,21 @@ export function YouTubeTable({
   return (
     <TableStyleEnhancer>
       <div className={`space-y-4 ${className}`}>
-        {/* 列管理器 */}
-        <ColumnManager dynamicColumns={dynamicColumns} className="mb-4" />
+        {/* 统一列控制器 */}
+        <UnifiedColumnControl 
+          dynamicColumns={dynamicColumns} 
+          table={table}
+          className="mb-4" 
+        />
 
         {/* 表格工具栏 */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-2 sm:space-y-0 sm:space-x-4">
           <div className="flex flex-col space-y-2">
-            <GlobalFilter
+            {/* 全局搜索功能已移除 - 保留状态管理但不显示UI */}
+            {/* <GlobalFilter
               globalFilter={globalFilter}
               setGlobalFilter={setGlobalFilter}
-            />
+            /> */}
             <div className="text-xs text-gray-400">
               💡 提示：将鼠标悬停在列边界上可拖拽调节列宽
             </div>
@@ -1478,7 +1482,7 @@ export function YouTubeTable({
             >
               高级筛选
             </button>
-            <ColumnVisibility table={table} />
+            {/* ColumnVisibility组件已移除 - 功能已整合到UnifiedColumnControl中 */}
             <div className="text-sm text-gray-500">
               {Object.keys(rowSelection).length} 项已选择
             </div>
@@ -1562,8 +1566,8 @@ export function YouTubeTable({
                                     e.stopPropagation()
                                     setSelectedColumnForAI({
                                       id:
-                                        (header.column.columnDef
-                                          .accessorKey as string) ||
+                                        (header.column.columnDef as any)
+                                          ?.accessorKey ||
                                         header.column.id,
                                       name:
                                         typeof header.column.columnDef
@@ -1580,9 +1584,10 @@ export function YouTubeTable({
                                 </button>
                               )}
                           </div>
-                          {header.column.getCanFilter() ? (
+                          {/* 列级搜索过滤器已移除 - 保留逻辑但不显示UI */}
+                          {/* {header.column.getCanFilter() ? (
                             <Filter column={header.column} table={table} />
-                          ) : null}
+                          ) : null} */}
                         </div>
                       )}
                       {/* 列宽调节手柄 */}

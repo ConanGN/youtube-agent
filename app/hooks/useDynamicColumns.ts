@@ -252,7 +252,7 @@ export function useDynamicColumns(options: UseDynamicColumnsOptions = {}): UseDy
         minSize: config.minWidth || 50,
         maxSize: config.maxWidth || 800,
         enableSorting: config.features.sortable,
-        enableColumnFilter: config.features.filterable,
+        enableColumnFilter: false, // 搜索功能已移除 - 禁用所有列的过滤功能
         enableResizing: config.features.resizable,
         enablePinning: config.features.pinnable,
         enableGrouping: config.features.groupable,

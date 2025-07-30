@@ -170,7 +170,7 @@ export default function AIPromptDrawer({
     }
     
     // 去重并尝试每个可能的key
-    const uniqueKeys = [...new Set(keysToTry)];
+    const uniqueKeys = Array.from(new Set(keysToTry));
     
     for (const key of uniqueKeys) {
       if (rowData && rowData[key] !== undefined && rowData[key] !== null) {
@@ -230,7 +230,7 @@ export default function AIPromptDrawer({
       }
       
       // 去重并尝试每个可能的key
-      const uniqueKeys = [...new Set(keysToTry)];
+      const uniqueKeys = Array.from(new Set(keysToTry));
       let content = '';
       
       for (const key of uniqueKeys) {
