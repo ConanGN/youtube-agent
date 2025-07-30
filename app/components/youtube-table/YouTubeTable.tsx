@@ -775,6 +775,7 @@ export function YouTubeTable({
       enableColumnFilter: false, // 禁用列搜索功能 - UI已移除
       meta: {
         filterVariant: 'text', // 保留搜索类型配置以供未来使用
+        displayName: '字幕', // 在列显示下拉菜单中显示的中文名称
       },
     }
 
@@ -1220,7 +1221,8 @@ export function YouTubeTable({
 
   // 进一步稳定化availableColumns，避免每次渲染都创建新的对象数组
   const stableAvailableColumns = React.useMemo(() => {
-    return dynamicColumns.visibleConfigs
+    // 从动态列配置中获取基础列
+    const dynamicColumnList = dynamicColumns.visibleConfigs
       .filter((col) => !['select', 'index', 'actions'].includes(col.id))
       .map((col) => ({
         id: col.id,
@@ -1230,6 +1232,24 @@ export function YouTubeTable({
         isSystemColumn: col.isSystemColumn,
         accessorKey: col.accessorKey, // 添加实际的数据字段名
       }))
+    
+    // 手动添加字幕列到可选择的数据源列表中（因为字幕列是硬编码的系统列，不在动态列配置中）
+    const subtitleColumn = {
+      id: 'subtitle',
+      title: '字幕',
+      subtitle: undefined,
+      dataType: 'text' as const,
+      isSystemColumn: true,
+      accessorKey: 'subtitles', // 字幕列对应的数据字段
+    }
+    
+    // 检查字幕列是否已经存在（避免重复添加）
+    const hasSubtitleColumn = dynamicColumnList.some(col => col.id === 'subtitle')
+    if (!hasSubtitleColumn) {
+      dynamicColumnList.push(subtitleColumn)
+    }
+    
+    return dynamicColumnList
   }, [dynamicColumns.visibleConfigs])
 
   // 使用useMemo稳定化AIPromptDrawer的props，避免无限重渲染

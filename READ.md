@@ -1,5 +1,98 @@
 # 项目修改记录
 
+## 2025-07-30 🔧 AI批量处理数据源字幕列选项添加 `v2.7.2`
+
+### 🎯 功能概述
+**字幕列选项缺失修复**：在AI批量处理对话框的数据源下拉菜单中添加"字幕列"选项，允许用户选择字幕内容作为AI处理的数据源。
+
+### 📋 问题分析
+1. **根本原因**: 字幕列是硬编码的系统列，不在动态列配置（visibleConfigs）中，导致未包含在availableColumns列表中
+2. **影响范围**: 用户无法选择字幕列作为AI批量处理的数据源
+3. **用户需求**: 需要对字幕内容进行AI批量处理（如翻译、摘要等）
+
+### ⚙️ 修复方案
+- **手动添加**: 在stableAvailableColumns生成逻辑中手动添加字幕列配置
+- **数据源映射**: 将字幕列的accessorKey设置为'subtitles'，对应实际的字幕数据字段
+- **系统列标识**: 正确标识字幕列为系统列（isSystemColumn: true）
+
+### 📂 代码变更记录
+- **修复文件**: `app/components/youtube-table/YouTubeTable.tsx` (第1223-1253行)
+- **变更类型**: 功能增强，数据源选项扩展
+- **变更影响**: AI批量处理数据源下拉菜单新增"字幕"选项
+
+### 🛠️ 技术实现
+```typescript
+// 手动添加字幕列到可选择的数据源列表中（因为字幕列是硬编码的系统列，不在动态列配置中）
+const subtitleColumn = {
+  id: 'subtitle',
+  title: '字幕',
+  subtitle: undefined,
+  dataType: 'text' as const,
+  isSystemColumn: true,
+  accessorKey: 'subtitles', // 字幕列对应的数据字段
+}
+
+// 检查字幕列是否已经存在（避免重复添加）
+const hasSubtitleColumn = dynamicColumnList.some(col => col.id === 'subtitle')
+if (!hasSubtitleColumn) {
+  dynamicColumnList.push(subtitleColumn)
+}
+```
+
+### ✅ 修复验证结果
+- **编译状态**: ✅ Next.js项目编译通过，无TypeScript类型错误
+- **数据源选项**: ✅ AI批量处理对话框数据源下拉菜单现在包含"字幕"选项
+- **功能完整**: ✅ 用户可以选择字幕列作为AI处理的数据源
+- **向后兼容**: ✅ 现有功能不受影响，保持系统稳定性
+
+### 🎯 业务价值体现
+- **⚡ 功能完整**: 支持对字幕内容进行AI批量处理，满足用户需求
+- **🧠 使用灵活**: 扩展了AI处理的数据源选择，提升工具实用性
+- **🔄 架构健壮**: 通过检查机制避免重复添加，保证数据一致性
+- **💡 扩展性强**: 为其他硬编码系统列的集成提供参考模式
+
+## 2025-07-30 🐛 字幕列名称显示错误修复 `v2.7.1`
+
+### 🎯 问题概述
+**显示名称错误**：在列显示下拉菜单中，字幕列错误显示为"subtitle"而不是正确的中文名称"字幕"。
+
+### 📋 问题分析
+1. **根本原因**: UnifiedColumnControl组件在获取列标题时，没有优先使用列的meta.displayName属性
+2. **影响范围**: 字幕列等硬编码系统列的中文名称显示错误
+3. **用户体验**: 用户在列显示管理中看到英文列名，不符合中文界面预期
+
+### ⚙️ 修复方案
+- **优先级调整**: 修改UnifiedColumnControl.tsx中列标题获取逻辑
+- **显示优先级**: meta.displayName > columnDef.header > config.title > column.id
+- **最小修改**: 仅在UnifiedColumnControl.tsx第241-246行添加meta.displayName支持
+
+### 📂 代码变更记录
+- **修复文件**: `app/components/youtube-table/UnifiedColumnControl.tsx` (第241-246行)
+- **变更类型**: Bug修复，显示名称优先级调整
+- **变更影响**: 字幕列正确显示为"字幕"，其他列显示不受影响
+
+### 🛠️ 技术实现
+```typescript
+// 优先使用meta中的displayName（用于字幕列等硬编码系统列的中文显示）
+const metaDisplayName = (column.columnDef.meta as any)?.displayName
+const columnTitle = metaDisplayName ||
+  (typeof column.columnDef.header === 'string' 
+  ? column.columnDef.header 
+  : config?.title || column.id)
+```
+
+### ✅ 修复验证结果
+- **显示修复**: ✅ 字幕列在列显示下拉菜单中正确显示为"字幕"
+- **功能完整**: ✅ 列显示管理功能正常工作
+- **向后兼容**: ✅ 其他列的显示名称不受影响
+- **最小修改**: ✅ 仅修改必要代码，保持系统稳定性
+
+### 🎯 业务价值体现
+- **⚡ 界面统一**: 确保中文界面的一致性和专业性
+- **🧠 用户体验**: 提供符合用户预期的中文列名显示
+- **🔄 易于维护**: 建立清晰的列名显示优先级机制
+- **💡 扩展支持**: 为其他硬编码系统列的中文显示奠定基础
+
 ## 2025-07-30 🎨 UI组件整合与响应式重构 `v2.7.0`
 
 ### 🎯 功能概述

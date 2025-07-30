@@ -303,9 +303,10 @@ export function ColumnVisibility({ table }: ColumnVisibilityProps) {
                     className="mr-2"
                   />
                   <label className="text-sm">
-                    {typeof column.columnDef.header === 'string'
+                    {(column.columnDef.meta as any)?.displayName ||
+                     (typeof column.columnDef.header === 'string'
                       ? column.columnDef.header
-                      : column.id}
+                      : column.id)}
                   </label>
                 </div>
               ))}

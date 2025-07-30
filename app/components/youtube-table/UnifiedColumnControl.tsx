@@ -238,9 +238,12 @@ export function UnifiedColumnControl({
                     allColumns.map((column) => {
                       // 查找对应的动态列配置
                       const config = columnConfigs.find(c => c.id === column.id || c.accessorKey === column.id)
-                      const columnTitle = typeof column.columnDef.header === 'string' 
+                      // 优先使用meta中的displayName（用于字幕列等硬编码系统列的中文显示）
+                      const metaDisplayName = (column.columnDef.meta as any)?.displayName
+                      const columnTitle = metaDisplayName ||
+                        (typeof column.columnDef.header === 'string' 
                         ? column.columnDef.header 
-                        : config?.title || column.id
+                        : config?.title || column.id)
                       
                       return (
                         <div
