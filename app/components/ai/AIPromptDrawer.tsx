@@ -126,8 +126,26 @@ export default function AIPromptDrawer({
     setSourceColumnId(columnId);
   }, [columnId]);
 
-  // 统一的数据提取函数（供预览和实际处理使用） - 修复：精确的数据提取逻辑
+  // 统一的数据提取函数（供预览和实际处理使用） - 修复：精确的数据提取逻辑，特别处理字幕列
   const extractDataFromRow = React.useCallback((rowData: any, columnId: string) => {
+    // 特殊处理字幕列 - 使用与YouTubeTable相同的智能提取逻辑
+    if (columnId === 'subtitle') {
+      const subtitles = rowData.subtitles;
+      if (!subtitles) return '';
+      
+      // 优先提取已编辑的原始文本
+      if (subtitles.rawText) {
+        return subtitles.rawText;
+      }
+      
+      // 其次提取格式化的字幕内容
+      if (subtitles.cues && subtitles.cues.length > 0) {
+        return subtitles.cues.map((cue: any) => cue.text).join(' ');
+      }
+      
+      return ''; // 空状态和错误状态返回空字符串
+    }
+    
     // 首先查找对应的列配置以获取accessorKey
     const columnConfig = availableColumns.find(col => col.id === columnId);
     
@@ -193,52 +211,8 @@ export default function AIPromptDrawer({
     }
     
     const newPreviewData = selectedRows.map((row) => {
-      // 直接在这里定义数据提取逻辑，避免函数引用依赖
-      const columnConfig = availableColumns.find(col => col.id === sourceColumnId);
-      
-      // 构建尝试的键列表 - 修复：更精确的数据提取逻辑
-      const keysToTry = [];
-      
-      // 1. 优先使用列配置中的accessorKey（如果存在且明确定义）
-      if (columnConfig && columnConfig.accessorKey) {
-        keysToTry.push(columnConfig.accessorKey);
-        
-        // 如果有明确的accessorKey，就不要进行过度的fallback
-        // 只有当accessorKey确实无效时，才尝试columnId
-        if (columnConfig.accessorKey !== sourceColumnId) {
-          keysToTry.push(sourceColumnId);
-        }
-      } else {
-        // 2. 没有accessorKey时，直接使用columnId
-        keysToTry.push(sourceColumnId);
-        
-        // 3. 只对系统基础列进行智能映射，不对用户自定义列进行aggressive fallback
-        if (columnConfig && !sourceColumnId.includes('col_')) {
-          const titleMappings: Record<string, string[]> = {
-            '描述': ['description', 'desc', 'content', 'text', 'body'],
-            '标题': ['title', 'name', 'heading', 'subject'],
-            '缩略图': ['thumbnail', 'image', 'img', 'picture', 'photo'],
-            '频道': ['channelTitle', 'channel', 'channelName'],
-            '发布时间': ['publishedAt', 'published', 'date', 'publishTime'],
-            '观看数': ['viewCount', 'views', 'count', 'playCount']
-          };
-          
-          if (titleMappings[columnConfig.title]) {
-            keysToTry.push(...titleMappings[columnConfig.title]);
-          }
-        }
-      }
-      
-      // 去重并尝试每个可能的key
-      const uniqueKeys = Array.from(new Set(keysToTry));
-      let content = '';
-      
-      for (const key of uniqueKeys) {
-        if (row.data && row.data[key] !== undefined && row.data[key] !== null) {
-          content = String(row.data[key] || '');
-          break;
-        }
-      }
+      // 使用统一的数据提取函数，确保预览和实际处理使用相同逻辑
+      const content = extractDataFromRow(row.data, sourceColumnId);
       
       // 移除了频繁的DEBUG日志输出以优化控制台性能
       
@@ -251,7 +225,7 @@ export default function AIPromptDrawer({
     });
     
     setPreviewData(newPreviewData);
-  }, [sourceColumnId, selectedRows, availableColumns]); // 只依赖真实的数据，不依赖函数引用
+  }, [sourceColumnId, selectedRows, availableColumns, extractDataFromRow]); // 添加extractDataFromRow依赖
 
   // 初始化时设置默认模板
   React.useEffect(() => {

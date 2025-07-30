@@ -1240,7 +1240,7 @@ export function YouTubeTable({
       subtitle: undefined,
       dataType: 'text' as const,
       isSystemColumn: true,
-      accessorKey: 'subtitles', // 字幕列对应的数据字段
+      accessorKey: 'subtitle', // 修复：使用列ID作为accessorKey，与表格列定义保持一致
     }
     
     // 检查字幕列是否已经存在（避免重复添加）

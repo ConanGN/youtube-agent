@@ -1,5 +1,120 @@
 # 项目修改记录
 
+## 2025-07-30 🗑️ 字幕列删除功能修复 `v2.7.4`
+
+### 🎯 问题概述
+**字幕列缺少删除按钮**：用户反馈在列显示菜单中，字幕列只有复选框，没有删除按钮（x按钮），与其他列显示不一致。
+
+### 📋 问题分析
+1. **根本原因**: UnifiedColumnControl组件中删除按钮只对用户列（`isUserColumn: true`）显示
+2. **字幕列状态**: 字幕列是硬编码的系统列（`isSystemColumn: true`），不是用户列
+3. **用户期望**: 字幕列应该像其他列一样可以删除/隐藏，保持UI一致性
+
+### ⚙️ 修复方案
+- **特殊处理字幕列**: 在删除按钮显示条件中添加字幕列特例 `|| column.id === 'subtitle'`
+- **删除行为区分**: 字幕列点击删除按钮时执行隐藏操作，普通用户列执行真正删除
+- **工具提示更新**: 字幕列删除按钮的tooltip显示"隐藏字幕列"，区别于普通列的"删除列"
+- **最小代码修改**: 仅修改删除按钮的显示条件和点击逻辑，不改变数据结构
+
+### 📂 代码变更记录
+- **修复文件**: `app/components/youtube-table/UnifiedColumnControl.tsx` (第275-293行)
+- **变更类型**: UI一致性修复，字幕列特殊处理逻辑
+- **变更影响**: 字幕列现在显示删除按钮，与其他列保持UI一致性
+
+### 🛠️ 技术实现
+```typescript
+// 修改删除按钮显示条件，为字幕列添加特例
+{(config?.isUserColumn || column.id === 'subtitle') && (
+  <button
+    onClick={() => {
+      if (column.id === 'subtitle') {
+        // 字幕列特殊处理：通过切换可见性来"删除"
+        column.toggleVisibility()
+      } else if (config) {
+        // 普通用户列：确认后真正删除
+        if (confirm(`确定要删除列"${columnTitle}"吗？`)) {
+          removeColumn(config.id)
+        }
+      }
+    }}
+    className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors duration-150"
+    title={column.id === 'subtitle' ? '隐藏字幕列' : '删除列'}
+  >
+    <X className="w-4 h-4" />
+  </button>
+)}
+```
+
+### ✅ 修复验证结果
+- **编译状态**: ✅ Next.js项目编译通过，无TypeScript类型错误
+- **UI一致性**: ✅ 字幕列现在显示删除按钮，与其他列保持一致
+- **功能正确**: ✅ 点击字幕列删除按钮正确隐藏列，不影响数据
+- **工具提示**: ✅ 删除按钮显示正确的提示信息
+- **向后兼容**: ✅ 其他列的删除功能不受影响
+
+### 🎯 业务价值体现
+- **⚡ UI一致性**: 所有列都有统一的删除按钮显示，提升用户体验
+- **🧠 操作直观**: 用户可以通过删除按钮隐藏字幕列，操作更加直观
+- **🔄 行为合理**: 字幕列作为系统列不会被真正删除，只是隐藏，保护数据完整性
+- **💡 维护友好**: 最小化修改保证代码稳定性，特殊处理逻辑清晰易懂
+
+## 2025-07-30 🐛 AI批量处理字幕列数据预览修复 `v2.7.3`
+
+### 🎯 问题概述
+**字幕列数据预览显示"[object Object]"**：用户在AI批量处理对话框中选择"字幕"作为数据源列时，右侧预览窗口显示"[object Object]"而非实际字幕文本内容，导致AI处理无法正常工作。
+
+### 📋 问题分析
+1. **根本原因**: 字幕列在AI处理时的数据提取逻辑与表格显示的逻辑不一致
+2. **表格列定义**: YouTubeTable.tsx中的字幕列使用智能的`accessorFn`函数提取文本内容
+3. **AI处理问题**: AIPromptDrawer.tsx直接访问`row.subtitles`对象，而不是提取其中的文本内容
+4. **配置不匹配**: 列配置中的`accessorKey`设置为`'subtitles'`，指向对象而非文本
+
+### ⚙️ 修复方案
+- **统一数据提取逻辑**: 在AIPromptDrawer中实现与YouTubeTable相同的字幕文本提取逻辑
+- **特殊处理字幕列**: 为字幕列添加专门的智能文本提取函数
+- **accessorKey修正**: 将字幕列的accessorKey从'subtitles'改为'subtitle'与列ID保持一致
+- **最小代码修改**: 只修改必要的数据提取逻辑，不改变公共API
+
+### 📂 代码变更记录
+- **主要修改**: `app/components/ai/AIPromptDrawer.tsx` (数据提取函数130-201行)
+- **辅助修改**: `app/components/youtube-table/YouTubeTable.tsx` (accessorKey修正1243行)
+- **变更类型**: Bug修复，数据提取逻辑优化
+- **变更影响**: AI批量处理字幕列预览和处理正常工作
+
+### 🛠️ 技术实现
+```typescript
+// 特殊处理字幕列 - 使用与YouTubeTable相同的智能提取逻辑
+if (columnId === 'subtitle') {
+  const subtitles = rowData.subtitles;
+  if (!subtitles) return '';
+  
+  // 优先提取已编辑的原始文本
+  if (subtitles.rawText) {
+    return subtitles.rawText;
+  }
+  
+  // 其次提取格式化的字幕内容
+  if (subtitles.cues && subtitles.cues.length > 0) {
+    return subtitles.cues.map((cue: any) => cue.text).join(' ');
+  }
+  
+  return ''; // 空状态和错误状态返回空字符串
+}
+```
+
+### ✅ 修复验证结果
+- **编译状态**: ✅ Next.js项目编译通过，功能正常
+- **数据预览**: ✅ 字幕列在AI处理预览中正确显示文本内容
+- **数据提取**: ✅ 支持已编辑字幕、获取字幕、空状态的智能识别
+- **处理一致性**: ✅ 预览和实际AI处理使用相同数据提取逻辑
+- **向后兼容**: ✅ 不影响其他列的数据处理功能
+
+### 🎯 业务价值体现
+- **⚡ 功能修复**: AI批量处理字幕列功能恢复正常，用户可进行字幕翻译等操作
+- **🧠 逻辑统一**: 确保表格显示和AI处理使用一致的字幕文本提取逻辑
+- **🔄 智能识别**: 支持多种字幕状态的智能处理（已编辑、已获取、空状态）
+- **💡 处理准确**: 消除"[object Object]"显示问题，提供准确的数据预览
+
 ## 2025-07-30 🔧 AI批量处理数据源字幕列选项添加 `v2.7.2`
 
 ### 🎯 功能概述

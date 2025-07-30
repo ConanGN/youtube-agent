@@ -271,16 +271,22 @@ export function UnifiedColumnControl({
                             )}
                           </div>
                           
-                          {/* 删除按钮（仅用户列） */}
-                          {config?.isUserColumn && (
+                          {/* 删除按钮（用户列 + 字幕列特殊处理） */}
+                          {(config?.isUserColumn || column.id === 'subtitle') && (
                             <button
                               onClick={() => {
-                                if (confirm(`确定要删除列"${columnTitle}"吗？`)) {
-                                  removeColumn(config.id)
+                                if (column.id === 'subtitle') {
+                                  // 字幕列特殊处理：通过切换可见性来"删除"
+                                  column.toggleVisibility()
+                                } else if (config) {
+                                  // 普通用户列：确认后真正删除
+                                  if (confirm(`确定要删除列"${columnTitle}"吗？`)) {
+                                    removeColumn(config.id)
+                                  }
                                 }
                               }}
                               className="p-1 text-gray-400 hover:text-red-500 rounded hover:bg-red-50 transition-colors duration-150"
-                              title="删除列"
+                              title={column.id === 'subtitle' ? '隐藏字幕列' : '删除列'}
                             >
                               <X className="w-4 h-4" />
                             </button>
