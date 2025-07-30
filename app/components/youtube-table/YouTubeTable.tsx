@@ -709,10 +709,22 @@ export function YouTubeTable({
           accessorKey: 'subtitle', // 使用列ID作为accessorKey，与字幕列搜索功能保持一致
           title: '字幕',
           dataType: 'longtext',
+          isSystemColumn: true,
+          isUserColumn: false,
+          visible: true,
+          position: 5, // 在描述列后
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
           features: {
             editable: true,
             sortable: false,
             filterable: false,
+            resizable: true,
+            pinnable: false,
+            groupable: false,
+            aiProcessable: true,
+            exportable: true,
+            searchable: true,
           }
         }
 
@@ -764,7 +776,6 @@ export function YouTubeTable({
       enableColumnFilter: false, // 禁用列搜索功能 - UI已移除
       meta: {
         filterVariant: 'text', // 保留搜索类型配置以供未来使用
-        displayName: '字幕', // 在列显示下拉菜单中显示的中文名称
       },
     }
 
@@ -832,7 +843,7 @@ export function YouTubeTable({
               console.log('数据更新对比:', {
                 行索引: rowIndex,
                 字段: columnId,
-                更新前: old[rowIndex]![columnId],
+                更新前: (old[rowIndex] as any)?.[columnId],
                 更新后: value,
                 完整行数据: updatedRow
               })
