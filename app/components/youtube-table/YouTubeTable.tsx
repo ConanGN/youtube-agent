@@ -32,6 +32,7 @@ import {
 import { EditableCell, NumberEditableCell } from './EditableCell'
 import { ThumbnailEditableCell } from './ThumbnailEditableCell'
 import { SubtitleEditDialog } from './SubtitleEditDialog'
+import { TruncatedTextCell } from '@/components/cells/TruncatedTextCell'
 import {
   Filter,
   GlobalFilter,
@@ -616,17 +617,17 @@ export function YouTubeTable({
     // 字幕列定义
     const subtitleColumn: ColumnDef<UnifiedDataItem> = {
       id: 'subtitle',
-      // 添加智能字幕数据提取函数，支持搜索功能
+      // 添加智能字幕数据提取函数，支持搜索功能和编辑后内容同步
       accessorFn: (row) => {
         const subtitles = row.subtitles
         if (!subtitles) return ''
 
-        // 优先搜索已编辑的原始文本
+        // 优先返回已编辑的原始文本（与cell显示保持一致）
         if (subtitles.rawText) {
           return subtitles.rawText
         }
 
-        // 其次搜索格式化的字幕内容
+        // 其次返回格式化的字幕内容
         if (subtitles.cues && subtitles.cues.length > 0) {
           return subtitles.cues.map((cue) => cue.text).join(' ')
         }
@@ -660,32 +661,11 @@ export function YouTubeTable({
           </div>
         )
       },
-      cell: ({ row }) => {
+      cell: ({ row, table }) => {
         const subtitles = row.original.subtitles
         const status = (row.original as any).subtitlesStatus
 
-        // 双击编辑处理函数
-        const handleDoubleClick = () => {
-          // 如果有字幕数据，打开编辑弹窗
-          if (subtitles && subtitles.cues && subtitles.cues.length > 0) {
-            handleOpenSubtitleEdit(row.original.id, subtitles)
-          } else if (subtitles && subtitles.rawText) {
-            // 如果有原始文本（已编辑过的字幕），直接编辑
-            setSubtitleEditDialog({
-              isOpen: true,
-              videoId: row.original.id,
-              currentSubtitles: subtitles.rawText,
-            })
-          } else {
-            // 如果没有字幕，创建新的空白编辑
-            setSubtitleEditDialog({
-              isOpen: true,
-              videoId: row.original.id,
-              currentSubtitles: '',
-            })
-          }
-        }
-
+        // 特殊状态处理：加载中、错误、空状态，不支持编辑
         if (status === 'loading') {
           return (
             <div className="flex items-center px-2 py-1 text-xs text-blue-600">
@@ -698,11 +678,7 @@ export function YouTubeTable({
         if (status === 'error') {
           const error = (row.original as any).subtitlesError
           return (
-            <div
-              className="px-2 py-1 text-xs text-red-600 truncate cursor-pointer hover:bg-red-50"
-              title={`${error} - 双击编辑字幕`}
-              onDoubleClick={handleDoubleClick}
-            >
+            <div className="px-2 py-1 text-xs text-red-600 truncate">
               获取失败: {error}
             </div>
           )
@@ -710,63 +686,76 @@ export function YouTubeTable({
 
         if (status === 'empty') {
           return (
-            <div
-              className="px-2 py-1 text-xs text-gray-400 italic cursor-pointer hover:bg-gray-50"
-              title="双击编辑字幕"
-              onDoubleClick={handleDoubleClick}
-            >
+            <div className="px-2 py-1 text-xs text-gray-400 italic">
               无可用字幕
             </div>
           )
         }
 
-        if (subtitles && subtitles.cues && subtitles.cues.length > 0) {
-          const cueCount = subtitles.cues.length
-          const languages = subtitles.languages || []
-          const preview = subtitles.cues[0]?.text?.substring(0, 30) + '...'
-
-          return (
-            <div
-              className="px-2 py-1 text-xs cursor-pointer hover:bg-blue-50"
-              title={`${preview} - 双击编辑字幕`}
-              onDoubleClick={handleDoubleClick}
-            >
-              <div className="text-green-600 font-medium">
-                {cueCount} 条字幕
-              </div>
-              <div className="text-gray-500 truncate">
-                {languages.length > 1 ? `[${languages.join(', ')}] ` : ''}
-                {preview}
-              </div>
-            </div>
-          )
+        // 使用TruncatedTextCell进行行内编辑
+        // 获取字幕内容进行显示和编辑
+        let displayValue = ''
+        if (subtitles && subtitles.rawText) {
+          // 优先显示已编辑的原始文本
+          displayValue = subtitles.rawText
+        } else if (subtitles && subtitles.cues && subtitles.cues.length > 0) {
+          // 其次显示格式化的字幕内容
+          displayValue = subtitles.cues.map((cue) => cue.text).join(' ')
         }
 
-        // 显示已编辑的原始文本（如果有）
-        if (subtitles && subtitles.rawText) {
-          const preview =
-            subtitles.rawText.substring(0, 50) +
-            (subtitles.rawText.length > 50 ? '...' : '')
-          return (
-            <div
-              className="px-2 py-1 text-xs cursor-pointer hover:bg-blue-50"
-              title={`${preview} - 双击编辑字幕`}
-              onDoubleClick={handleDoubleClick}
-            >
-              <div className="text-blue-600 font-medium">已编辑字幕</div>
-              <div className="text-gray-500 truncate">{preview}</div>
-            </div>
-          )
+        // 创建字幕列的配置 - 修复accessorKey以匹配实际数据结构
+        const subtitleConfig: DynamicColumnConfig = {
+          id: 'subtitle',
+          accessorKey: 'subtitle', // 使用列ID作为accessorKey，与字幕列搜索功能保持一致
+          title: '字幕',
+          dataType: 'longtext',
+          features: {
+            editable: true,
+            sortable: false,
+            filterable: false,
+          }
+        }
+
+        // 字幕列专用的onChange处理器 - 修复保存机制
+        const handleSubtitleChange = (newValue: string) => {
+          // 更新subtitles.rawText字段
+          const updatedData = tableData.map((item) => {
+            if (item.id === row.original.id) {
+              return {
+                ...item,
+                subtitles: {
+                  ...item.subtitles,
+                  rawText: newValue, // 保存到rawText字段
+                },
+                isEdited: true, // 标记为已编辑
+              } as UnifiedDataItem
+            }
+            return item
+          })
+
+          setTableData(updatedData)
+          onDataChange?.(updatedData)
+
+          // 开发环境调试日志
+          if (process.env.NODE_ENV === 'development') {
+            console.log('字幕列行内编辑保存成功:', {
+              视频ID: row.original.id,
+              新字幕内容: newValue.substring(0, 50) + (newValue.length > 50 ? '...' : ''),
+              保存到字段: 'subtitles.rawText',
+              完整字幕对象: updatedData.find(item => item.id === row.original.id)?.subtitles
+            })
+          }
         }
 
         return (
-          <div
-            className="text-gray-400 text-xs px-2 py-1 italic cursor-pointer hover:bg-gray-50"
-            title="双击编辑字幕"
-            onDoubleClick={handleDoubleClick}
-          >
-            暂无字幕
-          </div>
+          <TruncatedTextCell
+            value={displayValue}
+            config={subtitleConfig}
+            row={row.original}
+            onChange={handleSubtitleChange}
+            maxLength={100}
+            showTooltip={true}
+          />
         )
       },
       size: 160,
@@ -814,22 +803,48 @@ export function YouTubeTable({
     return allColumns
   }, [dynamicColumns.tableColumns, handleBatchSubtitleFetch, subtitleFetching])
 
-  // 数据更新函数
+  // 数据更新函数（增强调试功能）
   const updateData = React.useCallback(
     (rowIndex: number, columnId: string, value: unknown) => {
       skipAutoResetPageIndex()
-      setTableData((old) =>
-        old.map((row, index) => {
+      
+      // 开发环境调试日志
+      if (process.env.NODE_ENV === 'development') {
+        console.log('YouTubeTable updateData 调用:', {
+          行索引: rowIndex,
+          字段ID: columnId,
+          新值: value,
+          值类型: typeof value
+        })
+      }
+      
+      setTableData((old) => {
+        const updatedData = old.map((row, index) => {
           if (index === rowIndex) {
-            return {
+            const updatedRow = {
               ...old[rowIndex]!,
               [columnId]: value,
               isEdited: true, // 标记为已编辑
             }
+            
+            // 开发环境调试：显示更新前后的数据对比
+            if (process.env.NODE_ENV === 'development') {
+              console.log('数据更新对比:', {
+                行索引: rowIndex,
+                字段: columnId,
+                更新前: old[rowIndex]![columnId],
+                更新后: value,
+                完整行数据: updatedRow
+              })
+            }
+            
+            return updatedRow
           }
           return row
         })
-      )
+        
+        return updatedData
+      })
     },
     [skipAutoResetPageIndex]
   )

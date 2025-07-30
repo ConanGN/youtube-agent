@@ -41,11 +41,44 @@ export const TruncatedTextCell: React.FC<TruncatedTextCellProps> = ({
     }
   }, [displayValue, config.features.editable])
 
-  // 处理编辑保存
+  // 处理编辑保存（关键修复：确保数据正确保存到表格）
   const handleSave = useCallback(() => {
-    onChange(editValue)
+    // 只有当值真正发生变化时才保存
+    if (editValue !== displayValue) {
+      try {
+        // 立即调用onChange来更新数据到表格
+        onChange(editValue)
+        
+        // 开发环境调试日志（增强调试信息）
+        if (process.env.NODE_ENV === 'development') {
+          console.log('TruncatedTextCell保存成功:', { 
+            字段: config.accessorKey,
+            行ID: row?.id,
+            旧值: displayValue.substring(0, 50) + (displayValue.length > 50 ? '...' : ''), 
+            新值: editValue.substring(0, 50) + (editValue.length > 50 ? '...' : ''),
+            变化: editValue !== displayValue,
+            配置: config
+          })
+        }
+      } catch (error) {
+        console.error('TruncatedTextCell保存失败:', error)
+        // 可以在这里添加用户提示
+        if (process.env.NODE_ENV === 'development') {
+          alert('保存失败，请重试')
+        }
+      }
+    } else {
+      // 开发环境日志：没有变化时也记录
+      if (process.env.NODE_ENV === 'development') {
+        console.log('TruncatedTextCell无变化，跳过保存:', { 
+          字段: config.accessorKey,
+          当前值: displayValue.substring(0, 30) + (displayValue.length > 30 ? '...' : '')
+        })
+      }
+    }
+    // 结束编辑状态
     setIsEditing(false)
-  }, [editValue, onChange])
+  }, [editValue, onChange, displayValue, config.accessorKey, config, row])
 
   // 处理编辑取消
   const handleCancel = useCallback(() => {
@@ -109,33 +142,93 @@ export const TruncatedTextCell: React.FC<TruncatedTextCellProps> = ({
             value={editValue}
             onChange={(e) => setEditValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            onBlur={handleSave}
+            onBlur={() => {
+              // 延迟执行保存，避免点击按钮时立即失焦导致冲突
+              setTimeout(() => {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('TruncatedTextCell textarea失焦保存触发')
+                }
+                handleSave()
+              }, 100)
+            }}
             autoFocus
             rows={editorConfig.rows}
             className="w-full min-w-0 p-2 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-y"
             placeholder={editorConfig.placeholder}
             style={{ minHeight: '40px', maxHeight: '300px' }}
           />
-          <div className="absolute -top-6 right-0 text-xs text-gray-500 bg-white px-1">
-            Ctrl+Enter保存, Esc取消 | {editValue.length}字符
+          <div className="absolute -top-6 right-0 flex items-center gap-2 text-xs text-gray-500 bg-white px-1">
+            <button
+              onClick={() => {
+                // 手动保存按钮：立即保存，不延迟
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('TruncatedTextCell textarea手动保存按钮点击')
+                }
+                handleSave()
+              }}
+              className="px-2 py-1 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              title="保存更改"
+            >
+              保存
+            </button>
+            <button
+              onClick={handleCancel}
+              className="px-2 py-1 bg-gray-400 text-white rounded hover:bg-gray-500 transition-colors"
+              title="取消编辑"
+            >
+              取消
+            </button>
+            <span>Ctrl+Enter保存, Esc取消 | {editValue.length}字符</span>
           </div>
         </div>
       )
     } else {
       return (
-        <input
-          type={editorConfig.type}
-          value={editValue}
-          onChange={(e) => setEditValue(e.target.value)}
-          onKeyDown={handleKeyDown}
-          onBlur={handleSave}
-          autoFocus
-          className="w-full min-w-0 p-2 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          placeholder={editorConfig.placeholder}
-          min={config.dataType === 'number' ? (config.editor?.min || 0) : undefined}
-          max={config.dataType === 'number' ? config.editor?.max : undefined}
-          step={config.dataType === 'number' ? (config.editor?.step || 1) : undefined}
-        />
+        <div className="relative">
+          <input
+            type={editorConfig.type}
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onBlur={() => {
+              // 延迟执行保存，避免点击按钮时立即失焦导致冲突
+              setTimeout(() => {
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('TruncatedTextCell input失焦保存触发')
+                }
+                handleSave()
+              }, 100)
+            }}
+            autoFocus
+            className="w-full min-w-0 p-2 pr-20 text-sm border border-blue-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            placeholder={editorConfig.placeholder}
+            min={config.dataType === 'number' ? (config.editor?.min || 0) : undefined}
+            max={config.dataType === 'number' ? config.editor?.max : undefined}
+            step={config.dataType === 'number' ? (config.editor?.step || 1) : undefined}
+          />
+          <div className="absolute right-1 top-1 flex items-center gap-1">
+            <button
+              onClick={() => {
+                // 手动保存按钮：立即保存，不延迟
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('TruncatedTextCell input手动保存按钮点击')
+                }
+                handleSave()
+              }}
+              className="px-1 py-0.5 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+              title="保存更改"
+            >
+              ✓
+            </button>
+            <button
+              onClick={handleCancel}
+              className="px-1 py-0.5 bg-gray-400 text-white text-xs rounded hover:bg-gray-500 transition-colors"
+              title="取消编辑"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
       )
     }
   }

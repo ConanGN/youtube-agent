@@ -61,6 +61,45 @@ export function EditableCell({
 
   // 处理失焦保存
   const handleBlur = () => {
+    // 延迟处理，避免点击按钮时立即失焦导致的问题
+    setTimeout(() => {
+      setIsEditing(false)
+      
+      // 如果值没有变化，直接返回
+      if (value === initialValue) {
+        return
+      }
+
+      // 验证值
+      if (!validateValue(value)) {
+        setValue(initialValue) // 恢复原值
+        return
+      }
+
+      // 保存编辑历史
+      if (table.options.meta?.addEditHistory) {
+        table.options.meta.addEditHistory(index, id, initialValue || '', value)
+      }
+
+      // 更新数据到表格
+      if (table.options.meta?.updateData) {
+        table.options.meta.updateData(index, id, value)
+      }
+      
+      // 开发环境调试日志
+      if (process.env.NODE_ENV === 'development') {
+        console.log('EditableCell失焦保存:', { 
+          字段: id, 
+          行索引: index,
+          旧值: initialValue, 
+          新值: value 
+        })
+      }
+    }, 100)
+  }
+  
+  // 手动保存函数（立即保存，不延迟）
+  const handleManualSave = () => {
     setIsEditing(false)
     
     // 如果值没有变化，直接返回
@@ -79,23 +118,55 @@ export function EditableCell({
       table.options.meta.addEditHistory(index, id, initialValue || '', value)
     }
 
-    // 更新数据
+    // 更新数据到表格
     if (table.options.meta?.updateData) {
       table.options.meta.updateData(index, id, value)
+    }
+    
+    // 开发环境调试日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log('EditableCell手动保存:', { 
+        字段: id, 
+        行索引: index,
+        旧值: initialValue, 
+        新值: value 
+      })
     }
   }
 
   // 处理弹窗保存
   const handleDialogSave = (newValue: string) => {
+    // 如果值没有变化，直接关闭弹窗
+    if (newValue === initialValue) {
+      setShowDialog(false)
+      return
+    }
+
     // 保存编辑历史
     if (table.options.meta?.addEditHistory) {
       table.options.meta.addEditHistory(index, id, initialValue || '', newValue)
     }
 
-    // 更新数据
+    // 更新数据到表格
     if (table.options.meta?.updateData) {
       table.options.meta.updateData(index, id, newValue)
     }
+    
+    // 立即同步本地状态（关键修复：确保UI状态与数据状态完全同步）
+    setValue(newValue)
+    
+    // 开发环境调试日志
+    if (process.env.NODE_ENV === 'development') {
+      console.log('EditableCell弹窗保存:', { 
+        字段: id, 
+        行索引: index,
+        旧值: initialValue, 
+        新值: newValue 
+      })
+    }
+    
+    // 关闭弹窗
+    setShowDialog(false)
   }
 
   // 处理键盘事件
@@ -104,11 +175,11 @@ export function EditableCell({
       if (!isLongText) {
         // 短文本：Enter保存
         e.preventDefault()
-        handleBlur()
+        handleManualSave()
       } else if (e.ctrlKey || e.metaKey) {
         // 长文本：Ctrl+Enter保存
         e.preventDefault()
-        handleBlur()
+        handleManualSave()
       }
     } else if (e.key === 'Escape') {
       // ESC取消编辑

@@ -270,8 +270,20 @@ export function useDynamicColumns(options: UseDynamicColumnsOptions = {}): UseDy
               config,
               row: row.original,
               onChange: (newValue: any) => {
-                // 更新数据的逻辑
-                table.options.meta?.updateData(row.index, column.id, newValue)
+                // 更新数据的逻辑 - 使用accessorKey确保字段映射正确
+                const fieldKey = config.accessorKey || column.id
+                table.options.meta?.updateData(row.index, fieldKey, newValue)
+                
+                // 开发环境调试日志
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('useDynamicColumns customRenderer onChange:', {
+                    字段: fieldKey,
+                    行索引: row.index,
+                    新值: newValue,
+                    columnId: column.id,
+                    accessorKey: config.accessorKey
+                  })
+                }
               }
             })
           }
@@ -283,7 +295,20 @@ export function useDynamicColumns(options: UseDynamicColumnsOptions = {}): UseDy
               config,
               row: row.original,
               onChange: (newValue: any) => {
-                table.options.meta?.updateData(row.index, column.id, newValue)
+                // 使用accessorKey确保字段映射正确（关键修复）
+                const fieldKey = config.accessorKey || column.id
+                table.options.meta?.updateData(row.index, fieldKey, newValue)
+                
+                // 开发环境调试日志
+                if (process.env.NODE_ENV === 'development') {
+                  console.log('useDynamicColumns TruncatedTextCell onChange:', {
+                    字段: fieldKey,
+                    行索引: row.index,
+                    新值: newValue,
+                    columnId: column.id,
+                    accessorKey: config.accessorKey
+                  })
+                }
               },
               maxLength: getOptimalTruncateLength(config.dataType, config.width),
               showTooltip: true
