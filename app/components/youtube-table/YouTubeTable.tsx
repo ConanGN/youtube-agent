@@ -21,7 +21,7 @@ import {
   RowSelectionState,
   ColumnSizingState,
 } from '@tanstack/react-table'
-import { Zap, AlertCircle, CheckCircle, RefreshCw, X } from 'lucide-react'
+import { Zap, AlertCircle, CheckCircle, RefreshCw, X, Loader2 } from 'lucide-react'
 import {
   YouTubeVideo,
   EditHistory,
@@ -32,6 +32,7 @@ import {
 import { EditableCell, NumberEditableCell } from './EditableCell'
 import { ThumbnailEditableCell } from './ThumbnailEditableCell'
 import { SubtitleEditDialog } from './SubtitleEditDialog'
+import { AISubtitleDialog, type AISubtitleConfig, type SelectedVideo, type ProcessingProgress } from './AISubtitleDialog'
 import { TruncatedTextCell } from '@/components/cells/TruncatedTextCell'
 import {
   Filter,
@@ -152,6 +153,16 @@ export function YouTubeTable({
     name: string
   } | null>(null)
   const [aiColumns, setAiColumns] = useState<Set<string>>(new Set())
+
+  // AI字幕处理状态
+  const [showAISubtitleDialog, setShowAISubtitleDialog] = useState(false)
+  const [aiSubtitleProcessing, setAISubtitleProcessing] = useState(false)
+  const [aiSubtitleProgress, setAISubtitleProgress] = useState<ProcessingProgress>({
+    current: 0,
+    total: 0,
+    status: 'idle',
+    results: []
+  })
 
   // 字幕相关状态
   const [subtitleFetching, setSubtitleFetching] = useState(false)
@@ -384,6 +395,176 @@ export function YouTubeTable({
   const virtualDraftsVersion = React.useMemo(
     () => Array.from(batchState.virtualDrafts.keys()).sort().join(','),
     [batchState.virtualDrafts]
+  )
+
+  // AI字幕批量处理函数 - 使用useCallback稳定函数引用
+  const handleAISubtitleProcess = React.useCallback(
+    async (table: any) => {
+      // 使用与按钮状态检测一致的方式获取选中行
+      const selectedRows = table.getSelectedRowModel().rows
+      const selectedVideos: SelectedVideo[] = selectedRows.map((row: any) => ({
+        id: row.original.id,
+        title: row.original.title || `视频 ${row.original.id}`,
+        url: row.original.videoUrl || `https://youtube.com/watch?v=${row.original.id}`,
+        thumbnailUrl: row.original.thumbnail
+      }))
+
+      // 限制最多10个视频
+      if (selectedVideos.length > 10) {
+        alert('一次最多只能处理10个视频的AI字幕')
+        return
+      }
+
+      if (selectedVideos.length === 0) {
+        alert('请先选择要进行AI字幕处理的视频')
+        return
+      }
+
+      // 打开AI字幕处理弹窗
+      setShowAISubtitleDialog(true)
+    },
+    []
+  )
+
+  // AI字幕配置提交处理函数
+  const handleAISubtitleSubmit = React.useCallback(
+    async (config: AISubtitleConfig) => {
+      setAISubtitleProcessing(true)
+      setShowAISubtitleDialog(false)
+      
+      try {
+        // 设置初始进度状态
+        setAISubtitleProgress(prev => ({
+          ...prev,
+          status: 'processing',
+          current: 0,
+          total: config.urls.length
+        }))
+
+        // 调用AI字幕API
+        const response = await fetch('/api/subtitles-ai', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            urls: config.urls,
+            options: {
+              language: config.language === 'auto' ? undefined : config.language,
+              enableSmartFormatting: true,
+              includeTimestamps: config.enableTimestamp
+            }
+          })
+        })
+
+        if (!response.ok) {
+          const errorData = await response.json() as { error?: string }
+          throw new Error(errorData.error || 'AI字幕处理失败')
+        }
+
+        const data = await response.json()
+        const results = data.results || []
+
+        // 更新表格数据
+        const updatedData = tableData.map((item) => {
+          const aiResult = results.find((result: any) => 
+            result.url.includes(item.id) || item.videoUrl?.includes(result.id)
+          )
+          
+          if (aiResult) {
+            if (aiResult.error) {
+              return {
+                ...item,
+                subtitlesStatus: 'error' as const,
+                subtitlesError: `AI处理失败: ${aiResult.error}`,
+              }
+            } else if (aiResult.transcript?.text) {
+              return {
+                ...item,
+                subtitles: {
+                  ...item.subtitles,
+                  rawText: config.enableTimestamp && aiResult.transcript.segments
+                    ? aiResult.transcript.segments
+                        .map((seg: any) => `[${formatTime(seg.start)} - ${formatTime(seg.end)}] ${seg.text}`)
+                        .join('\n')
+                    : aiResult.transcript.text,
+                  aiGenerated: true,
+                  language: aiResult.transcript.language,
+                  processingTime: aiResult.processingTime
+                },
+                subtitlesStatus: 'success' as const,
+                subtitlesError: undefined,
+              }
+            } else {
+              return {
+                ...item,
+                subtitlesStatus: 'empty' as const,
+              }
+            }
+          }
+          return item
+        })
+
+        setTableData(updatedData)
+        onDataChange?.(updatedData)
+
+        // 更新进度状态为完成
+        setAISubtitleProgress(prev => ({
+          ...prev,
+          status: 'completed',
+          current: prev.total
+        }))
+
+        // 显示成功提示
+        const successCount = results.filter((r: any) => r.transcript?.text).length
+        const errorCount = results.filter((r: any) => r.error).length
+        
+        // 更新进度状态统计信息
+        setAISubtitleProgress(prev => ({
+          ...prev,
+          successCount,
+          failedCount: errorCount
+        }))
+        
+        if (successCount > 0) {
+          setTimeout(() => {
+            const message = errorCount > 0 
+              ? `AI字幕处理完成！成功: ${successCount} 个，失败: ${errorCount} 个。失败的视频可能是因为无音频或网络问题。`
+              : `AI字幕处理完成！成功处理了 ${successCount} 个视频的字幕。`
+            alert(message)
+          }, 500)
+        } else if (errorCount > 0) {
+          setTimeout(() => {
+            alert(`AI字幕处理失败！所有 ${errorCount} 个视频都处理失败。请检查视频链接或网络连接后重试。`)
+          }, 500)
+        }
+
+      } catch (error) {
+        console.error('AI字幕处理失败:', error)
+        
+        // 更新进度状态为错误
+        setAISubtitleProgress(prev => ({
+          ...prev,
+          status: 'error'
+        }))
+
+        // 显示错误提示
+        alert(`AI字幕处理失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      } finally {
+        setAISubtitleProcessing(false)
+        
+        // 3秒后重置进度状态
+        setTimeout(() => {
+          setAISubtitleProgress({
+            current: 0,
+            total: 0,
+            status: 'idle',
+            results: []
+          })
+        }, 3000)
+      }
+    },
+    [tableData, onDataChange, formatTime]
   )
 
   // 字幕批量抓取处理函数 - 使用useCallback稳定函数引用
@@ -638,26 +819,65 @@ export function YouTubeTable({
         const selectedRows = table.getSelectedRowModel().rows
         const selectedCount = selectedRows.length
         return (
-          <div className="flex flex-col items-center w-full space-y-1">
+          <div className="flex flex-col items-center w-full space-y-2">
             <span className="text-sm font-medium text-center">字幕</span>
-            <button
-              onClick={() => handleBatchSubtitleFetch(table)}
-              className={`px-2 py-1 text-xs rounded transition-colors ${
-                selectedCount > 0 && !subtitleFetching
-                  ? 'bg-blue-500 text-white hover:bg-blue-600'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-              }`}
-              title={
-                subtitleFetching
-                  ? '正在获取字幕...'
-                  : selectedCount > 0
-                    ? `获取选中 ${selectedCount} 行的字幕`
-                    : '请先选择要获取字幕的行'
-              }
-              disabled={selectedCount === 0 || subtitleFetching}
-            >
-              {subtitleFetching ? '获取中...' : '获取字幕'}
-            </button>
+            
+            {/* 按钮组 - 响应式设计 */}
+            <div className="flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1 w-full">
+              {/* 获取字幕按钮 */}
+              <button
+                onClick={() => handleBatchSubtitleFetch(table)}
+                className={`px-2 py-1 text-xs rounded transition-colors flex-1 sm:flex-none ${
+                  selectedCount > 0 && !subtitleFetching
+                    ? 'bg-blue-500 text-white hover:bg-blue-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                title={
+                  subtitleFetching
+                    ? '正在获取字幕...'
+                    : selectedCount > 0
+                      ? `获取选中 ${selectedCount} 行的字幕`
+                      : '请先选择要获取字幕的行'
+                }
+                disabled={selectedCount === 0 || subtitleFetching}
+              >
+                {subtitleFetching ? '获取中...' : '获取字幕'}
+              </button>
+              
+              {/* AI字幕按钮 */}
+              <button
+                onClick={() => handleAISubtitleProcess(table)}
+                className={`px-2 py-1 text-xs rounded transition-colors flex items-center justify-center flex-1 sm:flex-none ${
+                  selectedCount > 0 && !aiSubtitleProcessing
+                    ? 'bg-purple-500 text-white hover:bg-purple-600'
+                    : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                }`}
+                title={
+                  aiSubtitleProcessing
+                    ? '正在AI处理字幕...'
+                    : selectedCount > 0
+                      ? `AI处理选中 ${selectedCount} 行的字幕`
+                      : '请先选择要进行AI字幕处理的行'
+                }
+                disabled={selectedCount === 0 || aiSubtitleProcessing}
+              >
+                {aiSubtitleProcessing ? (
+                  <>
+                    <div className="animate-spin rounded-full h-3 w-3 border-b border-white mr-1"></div>
+                    <span className="hidden sm:inline">AI处理中</span>
+                    <span className="sm:hidden">处理中</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                    </svg>
+                    <span className="hidden sm:inline">AI字幕</span>
+                    <span className="sm:hidden">AI</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )
       },
@@ -1810,6 +2030,111 @@ export function YouTubeTable({
           value={subtitleEditDialog.currentSubtitles}
           onSave={handleSaveSubtitleEdit}
         />
+
+        {/* AI字幕处理弹窗 */}
+        <AISubtitleDialog
+          isOpen={showAISubtitleDialog}
+          onClose={() => setShowAISubtitleDialog(false)}
+          onSubmit={handleAISubtitleSubmit}
+          selectedVideos={
+            table.getSelectedRowModel().rows.map((row: any) => ({
+              id: row.original.id,
+              title: row.original.title || `视频 ${row.original.id}`,
+              url: row.original.videoUrl || `https://youtube.com/watch?v=${row.original.id}`,
+              thumbnailUrl: row.original.thumbnail
+            }))
+          }
+          onProgressUpdate={(progress) => setAISubtitleProgress(progress)}
+          disabled={aiSubtitleProcessing}
+        />
+
+        {/* AI字幕处理进度状态显示 */}
+        {aiSubtitleProgress.status !== 'idle' && (
+          <div className="fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm z-40">
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-sm font-medium text-gray-900 flex items-center">
+                <svg className="w-4 h-4 mr-2 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                AI字幕处理
+              </h4>
+              <button
+                onClick={() => setAISubtitleProgress(prev => ({ ...prev, status: 'idle' }))}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-2">
+              {/* 进度条 */}
+              <div className="flex items-center justify-between text-xs text-gray-500">
+                <span>进度</span>
+                <span>{aiSubtitleProgress.current}/{aiSubtitleProgress.total}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-1.5">
+                <div
+                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-1.5 rounded-full transition-all duration-300"
+                  style={{
+                    width: `${aiSubtitleProgress.total > 0 ? (aiSubtitleProgress.current / aiSubtitleProgress.total) * 100 : 0}%`
+                  }}
+                ></div>
+              </div>
+              
+              {/* 状态消息 */}
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center">
+                  {aiSubtitleProgress.status === 'processing' && (
+                    <>
+                      <Loader2 className="w-3 h-3 mr-1 animate-spin text-blue-500" />
+                      <span className="text-blue-700">正在处理中...</span>
+                    </>
+                  )}
+                  {aiSubtitleProgress.status === 'completed' && (
+                    <>
+                      <CheckCircle className="w-3 h-3 mr-1 text-green-500" />
+                      <span className="text-green-700">
+                        完成 {aiSubtitleProgress.successCount || 0}
+                        {(aiSubtitleProgress.failedCount || 0) > 0 && (
+                          <span className="text-red-600 ml-1">
+                            失败 {aiSubtitleProgress.failedCount}
+                          </span>
+                        )}
+                      </span>
+                    </>
+                  )}
+                  {aiSubtitleProgress.status === 'error' && (
+                    <>
+                      <AlertCircle className="w-3 h-3 mr-1 text-red-500" />
+                      <span className="text-red-700">处理失败</span>
+                    </>
+                  )}
+                </div>
+                
+                {/* 重试按钮 (仅在有失败项时显示) */}
+                {aiSubtitleProgress.status === 'completed' && (aiSubtitleProgress.failedCount || 0) > 0 && (
+                  <button
+                    onClick={() => {
+                      // 重新打开弹窗以重试失败的项目
+                      setShowAISubtitleDialog(true)
+                    }}
+                    className="px-2 py-1 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
+                    title="重试失败的视频"
+                  >
+                    重试
+                  </button>
+                )}
+              </div>
+              
+              {/* 当前处理视频 */}
+              {aiSubtitleProgress.currentVideoTitle && aiSubtitleProgress.status === 'processing' && (
+                <div className="text-xs text-gray-600 truncate">
+                  {aiSubtitleProgress.currentVideoTitle}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </TableStyleEnhancer>
   )

@@ -6,11 +6,1862 @@
  ⚠ Port 3001 is in use, trying 3002 instead.
  ⚠ Port 3002 is in use, trying 3003 instead.
  ⚠ Port 3003 is in use, trying 3004 instead.
- ⚠ Port 3004 is in use, trying 3005 instead.
- ⚠ Port 3005 is in use, trying 3006 instead.
- ⚠ Port 3006 is in use, trying 3007 instead.
    ▲ Next.js 14.0.4
-   - Local:        http://localhost:3007
+   - Local:        http://localhost:3004
    - Environments: .env.local
 
+ ✓ Ready in 43s
+ ○ Compiling /api/subtitles-ai ...
+ ✓ Compiled /api/subtitles-ai in 3.1s (184 modules)
+开始批量处理 1 个视频的AI字幕生成
+开始处理视频: invalid-url
+Error checking for updates: Status code: 403
+You can disable this check by setting the `YTDL_NO_UPDATE` env variable.
+获取视频 invalid-url 音频信息失败: UnrecoverableError: Video unavailable
+    at exports.playError (webpack-internal:///(rsc)/./node_modules/ytdl-core/lib/utils.js:146:16)
+    at validate (webpack-internal:///(rsc)/./node_modules/ytdl-core/lib/info.js:49:29)
+    at pipeline (webpack-internal:///(rsc)/./node_modules/ytdl-core/lib/info.js:145:17)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async exports.getBasicInfo (webpack-internal:///(rsc)/./node_modules/ytdl-core/lib/info.js:58:16)
+处理视频失败 (invalid-url): Error: 无法获取视频音频信息: Video unavailable
+    at getAudioDirectUrl (webpack-internal:///(rsc)/./app/api/subtitles-ai/route.ts:91:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai/route.ts:38:20)
+    at async processVideoSubtitles (webpack-internal:///(rsc)/./app/api/subtitles-ai/route.ts:180:27)
+批量处理完成: 成功 0 个，失败 1 个，总耗时 1790ms
+开始批量处理 1 个视频的AI字幕生成
+开始处理视频: jNQXAC9IVRw
+获取视频 jNQXAC9IVRw 音频信息失败: Error: Could not extract functions
+    at eval (webpack-internal:///(rsc)/./node_modules/ytdl-core/lib/sig.js:17:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+处理视频失败 (https://www.youtube.com/watch?v=jNQXAC9IVRw): Error: 无法获取视频音频信息: Could not extract functions
+    at getAudioDirectUrl (webpack-internal:///(rsc)/./app/api/subtitles-ai/route.ts:91:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai/route.ts:38:20)
+    at async processVideoSubtitles (webpack-internal:///(rsc)/./app/api/subtitles-ai/route.ts:180:27)
+批量处理完成: 成功 0 个，失败 1 个，总耗时 7284ms
+ ✓ Compiled in 323ms (184 modules)
+ ✓ Compiled in 36ms
+ ○ Compiling /api/subtitles-ai ...
+ ⨯ ./node_modules/undici/lib/web/fetch/util.js
+Module parse failed: Unexpected token (795:63)
+|             // 5. If object is not a default iterator object for interface,
+|             //    then throw a TypeError.
+>             if (typeof this !== "object" || this === null || !(#target in this)) {
+|                 throw new TypeError(`'next' called on an object that does not implement interface ${name} Iterator.`);
+|             }
+
+Import trace for requested module:
+./node_modules/undici/lib/web/fetch/util.js
+./node_modules/undici/lib/web/fetch/response.js
+./node_modules/undici/index.js
+./node_modules/@distube/ytdl-core/lib/utils.js
+./node_modules/@distube/ytdl-core/lib/index.js
+./app/api/subtitles-ai/route.ts
+ ⨯ ./node_modules/undici/lib/web/fetch/util.js
+Module parse failed: Unexpected token (795:63)
+|             // 5. If object is not a default iterator object for interface,
+|             //    then throw a TypeError.
+>             if (typeof this !== "object" || this === null || !(#target in this)) {
+|                 throw new TypeError(`'next' called on an object that does not implement interface ${name} Iterator.`);
+|             }
+
+Import trace for requested module:
+./node_modules/undici/lib/web/fetch/util.js
+./node_modules/undici/lib/web/fetch/index.js
+./node_modules/undici/index.js
+./node_modules/@distube/ytdl-core/lib/utils.js
+./node_modules/@distube/ytdl-core/lib/index.js
+./app/api/subtitles-ai/route.ts
+ ✓ Compiled /not-found in 1142ms (214 modules)
+ ○ Compiling /_error ...
+ ⨯ ./node_modules/undici/lib/web/fetch/util.js
+Module parse failed: Unexpected token (795:63)
+|             // 5. If object is not a default iterator object for interface,
+|             //    then throw a TypeError.
+>             if (typeof this !== "object" || this === null || !(#target in this)) {
+|                 throw new TypeError(`'next' called on an object that does not implement interface ${name} Iterator.`);
+|             }
+
+Import trace for requested module:
+./node_modules/undici/lib/web/fetch/util.js
+./node_modules/undici/lib/web/fetch/index.js
+./node_modules/undici/index.js
+./node_modules/@distube/ytdl-core/lib/utils.js
+./node_modules/@distube/ytdl-core/lib/index.js
+./app/api/subtitles-ai/route.ts
+ ✓ Compiled /_error in 1781ms (721 modules)
+ ✓ Compiled in 1139ms (380 modules)
+ ✓ Compiled in 781ms (332 modules)
+ ✓ Compiled in 923ms (332 modules)
+ ✓ Compiled /api/subtitles-ai in 408ms (202 modules)
+ ✓ Compiled in 1238ms (378 modules)
+ ✓ Compiled /api/subtitles-ai-demo in 339ms (201 modules)
+开始批量处理 1 个视频的AI字幕生成 (演示模式)
+开始处理视频: dQw4w9WgXcQ (演示模式)
+开始Deepgram语音转写...
+Deepgram请求参数: {
+  model: 'nova-2-general',
+  detect_language: true,
+  smart_format: true,
+  paragraphs: true,
+  punctuate: true,
+  diarize: false,
+  utterances: true,
+  language: undefined
+}
+Deepgram转写失败: TypeError: Cannot read properties of null (reading 'results')
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:84:21)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:132:31)
+处理视频失败 (https://www.youtube.com/watch?v=dQw4w9WgXcQ): Error: 语音转写失败: Cannot read properties of null (reading 'results')
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:116:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:132:31)
+批量处理完成: 成功 0 个，失败 1 个，总耗时 2879ms
+ ✓ Compiled in 530ms (533 modules)
+开始批量处理 1 个视频的AI字幕生成 (演示模式)
+开始处理视频: dQw4w9WgXcQ (演示模式)
+开始Deepgram语音转写...
+Deepgram请求参数: {
+  model: 'nova-2-general',
+  detect_language: true,
+  smart_format: true,
+  paragraphs: true,
+  punctuate: true,
+  diarize: false,
+  utterances: true,
+  language: undefined
+}
+Deepgram响应: null
+Deepgram转写失败: Error: Deepgram返回了空的转写结果
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:86:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:133:31)
+处理视频失败 (https://www.youtube.com/watch?v=dQw4w9WgXcQ): Error: 语音转写失败: Deepgram返回了空的转写结果
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:117:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:133:31)
+批量处理完成: 成功 0 个，失败 1 个，总耗时 2855ms
+ ✓ Compiled in 461ms (533 modules)
+开始批量处理 1 个视频的AI字幕生成 (演示模式)
+开始处理视频: test (演示模式)
+开始Deepgram语音转写...
+Deepgram请求参数: {
+  model: 'nova-2-general',
+  detect_language: true,
+  smart_format: true,
+  paragraphs: true,
+  punctuate: true,
+  diarize: false,
+  utterances: true,
+  language: undefined
+}
+Deepgram完整响应: {
+  "result": null,
+  "error": {
+    "name": "DeepgramApiError",
+    "message": "{\"err_code\":\"Bad Request\",\"err_msg\":\"Bad Request: No such model/language/tier combination found.\",\"request_id\":\"2bec379b-0764-4634-b454-c27f6c8cdfee\"}",
+    "status": 400
+  }
+}
+Deepgram转写失败: Error: Deepgram返回了空的结果对象
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:86:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:137:31)
+处理视频失败 (https://www.youtube.com/watch?v=test): Error: 语音转写失败: Deepgram返回了空的结果对象
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:121:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:137:31)
+批量处理完成: 成功 0 个，失败 1 个，总耗时 2418ms
+ ✓ Compiled in 450ms (533 modules)
+开始批量处理 1 个视频的AI字幕生成 (演示模式)
+开始处理视频: test (演示模式)
+开始Deepgram语音转写...
+Deepgram请求参数: {
+  model: 'nova-2',
+  detect_language: true,
+  smart_format: true,
+  paragraphs: true,
+  punctuate: true,
+  diarize: false,
+  utterances: true,
+  language: undefined
+}
+Deepgram完整响应: {
+  "result": null,
+  "error": {
+    "name": "DeepgramApiError",
+    "message": "{\"err_code\":\"Bad Request\",\"err_msg\":\"Bad Request: No such model/language/tier combination found.\",\"request_id\":\"f9d3f50c-3f60-4c62-8806-adb231fb2368\"}",
+    "status": 400
+  }
+}
+Deepgram转写失败: Error: Deepgram返回了空的结果对象
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:86:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:137:31)
+处理视频失败 (https://www.youtube.com/watch?v=test): Error: 语音转写失败: Deepgram返回了空的结果对象
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:121:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:137:31)
+批量处理完成: 成功 0 个，失败 1 个，总耗时 2642ms
+ ✓ Compiled in 563ms (533 modules)
+开始批量处理 1 个视频的AI字幕生成 (演示模式)
+开始处理视频: test (演示模式)
+开始Deepgram语音转写...
+Deepgram请求参数: {
+  model: 'general',
+  detect_language: true,
+  smart_format: true,
+  paragraphs: true,
+  punctuate: true,
+  diarize: false,
+  utterances: true,
+  language: undefined
+}
+Deepgram完整响应: {
+  "result": null,
+  "error": {
+    "name": "DeepgramApiError",
+    "message": "{\"err_code\":\"Bad Request\",\"err_msg\":\"Bad Request: No such model/language/tier combination found.\",\"request_id\":\"01a13c0c-a9c9-484f-8858-2646c7f2878a\"}",
+    "status": 400
+  }
+}
+Deepgram转写失败: Error: Deepgram返回了空的结果对象
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:86:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:137:31)
+处理视频失败 (https://www.youtube.com/watch?v=test): Error: 语音转写失败: Deepgram返回了空的结果对象
+    at transcribeWithDeepgram (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:121:15)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async retryWithBackoff (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:35:20)
+    at async processVideoSubtitlesDemo (webpack-internal:///(rsc)/./app/api/subtitles-ai-demo/route.ts:137:31)
+批量处理完成: 成功 0 个，失败 1 个，总耗时 2450ms
+ ✓ Compiled in 578ms (533 modules)
+开始批量处理 1 个视频的AI字幕生成 (演示模式)
+开始处理视频: test (演示模式)
+开始Deepgram语音转写...
+Deepgram请求参数: { punctuate: true, smart_format: true }
+Deepgram完整响应: {
+  "result": {
+    "metadata": {
+      "transaction_key": "deprecated",
+      "request_id": "9153e097-a82d-4743-bc53-0c2092bafd6c",
+      "sha256": "154e291ecfa8be6ab8343560bcc109008fa7853eb5372533e8efdefc9b504c33",
+      "created": "2025-08-01T07:50:29.924Z",
+      "duration": 25.933313,
+      "channels": 1,
+      "models": [
+        "1ed36bac-f71c-4f3f-a31f-02fd6525c489"
+      ],
+      "model_info": {
+        "1ed36bac-f71c-4f3f-a31f-02fd6525c489": {
+          "name": "general",
+          "version": "2024-01-26.8851",
+          "arch": "base"
+        }
+      }
+    },
+    "results": {
+      "channels": [
+        {
+          "alternatives": [
+            {
+              "transcript": "Yeah. As as much as it's worth celebrating the first Space walk with an all female team. I think many of us are looking forward to it just being normal. And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+              "confidence": 0.9946289,
+              "words": [
+                {
+                  "word": "yeah",
+                  "start": 0.11980891,
+                  "end": 0.19968152,
+                  "confidence": 0.97753906,
+                  "punctuated_word": "Yeah."
+                },
+                {
+                  "word": "as",
+                  "start": 0.43929935,
+                  "end": 0.93929935,
+                  "confidence": 0.8496094,
+                  "punctuated_word": "As"
+                },
+                {
+                  "word": "as",
+                  "start": 0.9984076,
+                  "end": 1.1581528,
+                  "confidence": 0.9921875,
+                  "punctuated_word": "as"
+                },
+                {
+                  "word": "much",
+                  "start": 1.1581528,
+                  "end": 1.317898,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "much"
+                },
+                {
+                  "word": "as",
+                  "start": 1.317898,
+                  "end": 1.6373885,
+                  "confidence": 0.9824219,
+                  "punctuated_word": "as"
+                },
+                {
+                  "word": "it's",
+                  "start": 2.116624,
+                  "end": 2.356242,
+                  "confidence": 0.99365234,
+                  "punctuated_word": "it's"
+                },
+                {
+                  "word": "worth",
+                  "start": 2.356242,
+                  "end": 2.856242,
+                  "confidence": 1,
+                  "punctuated_word": "worth"
+                },
+                {
+                  "word": "celebrating",
+                  "start": 2.9153502,
+                  "end": 3.4153502,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "celebrating"
+                },
+                {
+                  "word": "the",
+                  "start": 4.512802,
+                  "end": 4.6725473,
+                  "confidence": 0.99658203,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "first",
+                  "start": 4.6725473,
+                  "end": 5.1725473,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "first"
+                },
+                {
+                  "word": "space",
+                  "start": 5.3914013,
+                  "end": 5.7108917,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "Space"
+                },
+                {
+                  "word": "walk",
+                  "start": 5.7108917,
+                  "end": 6.030382,
+                  "confidence": 0.76123047,
+                  "punctuated_word": "walk"
+                },
+                {
+                  "word": "with",
+                  "start": 6.509618,
+                  "end": 6.669363,
+                  "confidence": 0.9941406,
+                  "punctuated_word": "with"
+                },
+                {
+                  "word": "an",
+                  "start": 6.669363,
+                  "end": 6.829108,
+                  "confidence": 0.9848633,
+                  "punctuated_word": "an"
+                },
+                {
+                  "word": "all",
+                  "start": 6.829108,
+                  "end": 6.9888535,
+                  "confidence": 0.92285156,
+                  "punctuated_word": "all"
+                },
+                {
+                  "word": "female",
+                  "start": 6.9888535,
+                  "end": 7.388216,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "female"
+                },
+                {
+                  "word": "team",
+                  "start": 7.388216,
+                  "end": 7.6278343,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "team."
+                },
+                {
+                  "word": "i",
+                  "start": 8.586306,
+                  "end": 8.666178,
+                  "confidence": 1,
+                  "punctuated_word": "I"
+                },
+                {
+                  "word": "think",
+                  "start": 8.666178,
+                  "end": 8.985668,
+                  "confidence": 1,
+                  "punctuated_word": "think"
+                },
+                {
+                  "word": "many",
+                  "start": 8.985668,
+                  "end": 9.145413,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "many"
+                },
+                {
+                  "word": "of",
+                  "start": 9.145413,
+                  "end": 9.305159,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "of"
+                },
+                {
+                  "word": "us",
+                  "start": 9.305159,
+                  "end": 9.805159,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "us"
+                },
+                {
+                  "word": "are",
+                  "start": 10.024013,
+                  "end": 10.26363,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "are"
+                },
+                {
+                  "word": "looking",
+                  "start": 10.26363,
+                  "end": 10.58312,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "looking"
+                },
+                {
+                  "word": "forward",
+                  "start": 10.58312,
+                  "end": 10.822739,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "forward"
+                },
+                {
+                  "word": "to",
+                  "start": 10.822739,
+                  "end": 10.982484,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "to"
+                },
+                {
+                  "word": "it",
+                  "start": 10.982484,
+                  "end": 11.142229,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "just",
+                  "start": 11.142229,
+                  "end": 11.381846,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "just"
+                },
+                {
+                  "word": "being",
+                  "start": 11.381846,
+                  "end": 11.881846,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "being"
+                },
+                {
+                  "word": "normal",
+                  "start": 12.020827,
+                  "end": 12.340318,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "normal."
+                },
+                {
+                  "word": "and",
+                  "start": 12.833542,
+                  "end": 13.231459,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "And"
+                },
+                {
+                  "word": "i",
+                  "start": 14.027292,
+                  "end": 14.106875,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "I"
+                },
+                {
+                  "word": "think",
+                  "start": 14.106875,
+                  "end": 14.266042,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "think"
+                },
+                {
+                  "word": "if",
+                  "start": 14.266042,
+                  "end": 14.425209,
+                  "confidence": 0.9946289,
+                  "punctuated_word": "if"
+                },
+                {
+                  "word": "it",
+                  "start": 14.425209,
+                  "end": 14.823126,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "signifies",
+                  "start": 14.823126,
+                  "end": 15.1414585,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "signifies"
+                },
+                {
+                  "word": "anything",
+                  "start": 15.1414585,
+                  "end": 15.539375,
+                  "confidence": 1,
+                  "punctuated_word": "anything,"
+                },
+                {
+                  "word": "it",
+                  "start": 15.778126,
+                  "end": 16.016876,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "is",
+                  "start": 16.016876,
+                  "end": 16.335209,
+                  "confidence": 0.9921875,
+                  "punctuated_word": "is"
+                },
+                {
+                  "word": "to",
+                  "start": 16.892292,
+                  "end": 17.131042,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "to"
+                },
+                {
+                  "word": "honor",
+                  "start": 17.131042,
+                  "end": 17.369793,
+                  "confidence": 1,
+                  "punctuated_word": "honor"
+                },
+                {
+                  "word": "the",
+                  "start": 17.369793,
+                  "end": 17.608541,
+                  "confidence": 0.9746094,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "the",
+                  "start": 17.608541,
+                  "end": 17.847292,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "women",
+                  "start": 17.847292,
+                  "end": 18.086042,
+                  "confidence": 0.75927734,
+                  "punctuated_word": "women"
+                },
+                {
+                  "word": "who",
+                  "start": 18.086042,
+                  "end": 18.245209,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "who"
+                },
+                {
+                  "word": "came",
+                  "start": 18.245209,
+                  "end": 18.563541,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "came"
+                },
+                {
+                  "word": "before",
+                  "start": 18.563541,
+                  "end": 18.72271,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "before"
+                },
+                {
+                  "word": "us",
+                  "start": 18.72271,
+                  "end": 18.881874,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "us,"
+                },
+                {
+                  "word": "who",
+                  "start": 19.43896,
+                  "end": 19.836876,
+                  "confidence": 0.9946289,
+                  "punctuated_word": "who"
+                },
+                {
+                  "word": "were",
+                  "start": 20.23479,
+                  "end": 20.553125,
+                  "confidence": 0.9140625,
+                  "punctuated_word": "were"
+                },
+                {
+                  "word": "skilled",
+                  "start": 20.553125,
+                  "end": 20.871458,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "skilled"
+                },
+                {
+                  "word": "and",
+                  "start": 20.871458,
+                  "end": 21.110209,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "and"
+                },
+                {
+                  "word": "qualified",
+                  "start": 21.110209,
+                  "end": 21.610209,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "qualified"
+                },
+                {
+                  "word": "and",
+                  "start": 22.383541,
+                  "end": 22.622292,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "and"
+                },
+                {
+                  "word": "didn't",
+                  "start": 22.622292,
+                  "end": 22.861042,
+                  "confidence": 0.8300781,
+                  "punctuated_word": "didn't"
+                },
+                {
+                  "word": "get",
+                  "start": 22.861042,
+                  "end": 23.258959,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "get,"
+                },
+                {
+                  "word": "the",
+                  "start": 23.338543,
+                  "end": 23.656876,
+                  "confidence": 0.98291016,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "same",
+                  "start": 23.656876,
+                  "end": 24.134377,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "same"
+                },
+                {
+                  "word": "opportunities",
+                  "start": 24.134377,
+                  "end": 24.45271,
+                  "confidence": 0.99365234,
+                  "punctuated_word": "opportunities"
+                },
+                {
+                  "word": "that",
+                  "start": 24.45271,
+                  "end": 24.69146,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "that"
+                },
+                {
+                  "word": "we",
+                  "start": 24.69146,
+                  "end": 24.850624,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "we"
+                },
+                {
+                  "word": "have",
+                  "start": 24.850624,
+                  "end": 25.168959,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "have"
+                },
+                {
+                  "word": "today",
+                  "start": 25.168959,
+                  "end": 25.248543,
+                  "confidence": 0.9692383,
+                  "punctuated_word": "today."
+                }
+              ],
+              "paragraphs": {
+                "transcript": "\nYeah. As as much as it's worth celebrating the first Space walk with an all female team. I think many of us are looking forward to it just being normal. And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+                "paragraphs": [
+                  {
+                    "sentences": [
+                      {
+                        "text": "Yeah.",
+                        "start": 0.11980891,
+                        "end": 0.19968152
+                      },
+                      {
+                        "text": "As as much as it's worth celebrating the first Space walk with an all female team.",
+                        "start": 0.43929935,
+                        "end": 7.6278343
+                      },
+                      {
+                        "text": "I think many of us are looking forward to it just being normal.",
+                        "start": 8.586306,
+                        "end": 12.340318
+                      },
+                      {
+                        "text": "And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+                        "start": 12.833542,
+                        "end": 25.248543
+                      }
+                    ],
+                    "num_words": 63,
+                    "start": 0.11980891,
+                    "end": 25.248543
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "error": null
+}
+Deepgram转写完成: {
+  textLength: 329,
+  segmentsCount: 4,
+  detectedLanguage: 'unknown',
+  duration: 25.933313,
+  confidence: 0.9946289
+}
+视频 test 处理完成，耗时 3405ms
+批量处理完成: 成功 1 个，失败 0 个，总耗时 3405ms
+开始批量处理 2 个视频的AI字幕生成 (演示模式)
+开始处理视频: test1 (演示模式)
+开始处理视频: test2 (演示模式)
+开始Deepgram语音转写...
+Deepgram请求参数: { punctuate: true, smart_format: true }
+开始Deepgram语音转写...
+Deepgram请求参数: { punctuate: true, smart_format: true }
+Deepgram完整响应: {
+  "result": {
+    "metadata": {
+      "transaction_key": "deprecated",
+      "request_id": "e7ffd77d-9845-4c62-afe8-288145b736f2",
+      "sha256": "154e291ecfa8be6ab8343560bcc109008fa7853eb5372533e8efdefc9b504c33",
+      "created": "2025-08-01T07:51:41.358Z",
+      "duration": 25.933313,
+      "channels": 1,
+      "models": [
+        "1ed36bac-f71c-4f3f-a31f-02fd6525c489"
+      ],
+      "model_info": {
+        "1ed36bac-f71c-4f3f-a31f-02fd6525c489": {
+          "name": "general",
+          "version": "2024-01-26.8851",
+          "arch": "base"
+        }
+      }
+    },
+    "results": {
+      "channels": [
+        {
+          "alternatives": [
+            {
+              "transcript": "Yeah. As as much as it's worth celebrating the first Space walk with an all female team. I think many of us are looking forward to it just being normal. And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+              "confidence": 0.9946289,
+              "words": [
+                {
+                  "word": "yeah",
+                  "start": 0.11980891,
+                  "end": 0.19968152,
+                  "confidence": 0.9814453,
+                  "punctuated_word": "Yeah."
+                },
+                {
+                  "word": "as",
+                  "start": 0.43929935,
+                  "end": 0.93929935,
+                  "confidence": 0.86279297,
+                  "punctuated_word": "As"
+                },
+                {
+                  "word": "as",
+                  "start": 0.9984076,
+                  "end": 1.1581528,
+                  "confidence": 0.9926758,
+                  "punctuated_word": "as"
+                },
+                {
+                  "word": "much",
+                  "start": 1.1581528,
+                  "end": 1.317898,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "much"
+                },
+                {
+                  "word": "as",
+                  "start": 1.317898,
+                  "end": 1.6373885,
+                  "confidence": 0.98339844,
+                  "punctuated_word": "as"
+                },
+                {
+                  "word": "it's",
+                  "start": 2.116624,
+                  "end": 2.356242,
+                  "confidence": 0.9941406,
+                  "punctuated_word": "it's"
+                },
+                {
+                  "word": "worth",
+                  "start": 2.356242,
+                  "end": 2.856242,
+                  "confidence": 1,
+                  "punctuated_word": "worth"
+                },
+                {
+                  "word": "celebrating",
+                  "start": 2.9153502,
+                  "end": 3.4153502,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "celebrating"
+                },
+                {
+                  "word": "the",
+                  "start": 4.512802,
+                  "end": 4.6725473,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "first",
+                  "start": 4.6725473,
+                  "end": 5.1725473,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "first"
+                },
+                {
+                  "word": "space",
+                  "start": 5.3914013,
+                  "end": 5.7108917,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "Space"
+                },
+                {
+                  "word": "walk",
+                  "start": 5.7108917,
+                  "end": 6.030382,
+                  "confidence": 0.7631836,
+                  "punctuated_word": "walk"
+                },
+                {
+                  "word": "with",
+                  "start": 6.509618,
+                  "end": 6.669363,
+                  "confidence": 0.9946289,
+                  "punctuated_word": "with"
+                },
+                {
+                  "word": "an",
+                  "start": 6.669363,
+                  "end": 6.829108,
+                  "confidence": 0.9848633,
+                  "punctuated_word": "an"
+                },
+                {
+                  "word": "all",
+                  "start": 6.829108,
+                  "end": 6.9888535,
+                  "confidence": 0.9223633,
+                  "punctuated_word": "all"
+                },
+                {
+                  "word": "female",
+                  "start": 6.9888535,
+                  "end": 7.388216,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "female"
+                },
+                {
+                  "word": "team",
+                  "start": 7.388216,
+                  "end": 7.6278343,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "team."
+                },
+                {
+                  "word": "i",
+                  "start": 8.586306,
+                  "end": 8.666178,
+                  "confidence": 1,
+                  "punctuated_word": "I"
+                },
+                {
+                  "word": "think",
+                  "start": 8.666178,
+                  "end": 8.985668,
+                  "confidence": 1,
+                  "punctuated_word": "think"
+                },
+                {
+                  "word": "many",
+                  "start": 8.985668,
+                  "end": 9.145413,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "many"
+                },
+                {
+                  "word": "of",
+                  "start": 9.145413,
+                  "end": 9.305159,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "of"
+                },
+                {
+                  "word": "us",
+                  "start": 9.305159,
+                  "end": 9.805159,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "us"
+                },
+                {
+                  "word": "are",
+                  "start": 10.024013,
+                  "end": 10.26363,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "are"
+                },
+                {
+                  "word": "looking",
+                  "start": 10.26363,
+                  "end": 10.58312,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "looking"
+                },
+                {
+                  "word": "forward",
+                  "start": 10.58312,
+                  "end": 10.822739,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "forward"
+                },
+                {
+                  "word": "to",
+                  "start": 10.822739,
+                  "end": 10.982484,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "to"
+                },
+                {
+                  "word": "it",
+                  "start": 10.982484,
+                  "end": 11.142229,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "just",
+                  "start": 11.142229,
+                  "end": 11.381846,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "just"
+                },
+                {
+                  "word": "being",
+                  "start": 11.381846,
+                  "end": 11.881846,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "being"
+                },
+                {
+                  "word": "normal",
+                  "start": 12.020827,
+                  "end": 12.340318,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "normal."
+                },
+                {
+                  "word": "and",
+                  "start": 12.833542,
+                  "end": 13.231459,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "And"
+                },
+                {
+                  "word": "i",
+                  "start": 14.027292,
+                  "end": 14.106875,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "I"
+                },
+                {
+                  "word": "think",
+                  "start": 14.106875,
+                  "end": 14.266042,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "think"
+                },
+                {
+                  "word": "if",
+                  "start": 14.266042,
+                  "end": 14.425209,
+                  "confidence": 0.9946289,
+                  "punctuated_word": "if"
+                },
+                {
+                  "word": "it",
+                  "start": 14.425209,
+                  "end": 14.823126,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "signifies",
+                  "start": 14.823126,
+                  "end": 15.1414585,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "signifies"
+                },
+                {
+                  "word": "anything",
+                  "start": 15.1414585,
+                  "end": 15.539375,
+                  "confidence": 1,
+                  "punctuated_word": "anything,"
+                },
+                {
+                  "word": "it",
+                  "start": 15.778126,
+                  "end": 16.016876,
+                  "confidence": 0.99072266,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "is",
+                  "start": 16.016876,
+                  "end": 16.335209,
+                  "confidence": 0.9916992,
+                  "punctuated_word": "is"
+                },
+                {
+                  "word": "to",
+                  "start": 16.892292,
+                  "end": 17.131042,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "to"
+                },
+                {
+                  "word": "honor",
+                  "start": 17.131042,
+                  "end": 17.369793,
+                  "confidence": 1,
+                  "punctuated_word": "honor"
+                },
+                {
+                  "word": "the",
+                  "start": 17.369793,
+                  "end": 17.608541,
+                  "confidence": 0.9716797,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "the",
+                  "start": 17.608541,
+                  "end": 17.847292,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "women",
+                  "start": 17.847292,
+                  "end": 18.086042,
+                  "confidence": 0.7651367,
+                  "punctuated_word": "women"
+                },
+                {
+                  "word": "who",
+                  "start": 18.086042,
+                  "end": 18.245209,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "who"
+                },
+                {
+                  "word": "came",
+                  "start": 18.245209,
+                  "end": 18.563541,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "came"
+                },
+                {
+                  "word": "before",
+                  "start": 18.563541,
+                  "end": 18.72271,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "before"
+                },
+                {
+                  "word": "us",
+                  "start": 18.72271,
+                  "end": 18.881874,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "us,"
+                },
+                {
+                  "word": "who",
+                  "start": 19.43896,
+                  "end": 19.836876,
+                  "confidence": 0.9941406,
+                  "punctuated_word": "who"
+                },
+                {
+                  "word": "were",
+                  "start": 20.23479,
+                  "end": 20.553125,
+                  "confidence": 0.9111328,
+                  "punctuated_word": "were"
+                },
+                {
+                  "word": "skilled",
+                  "start": 20.553125,
+                  "end": 20.871458,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "skilled"
+                },
+                {
+                  "word": "and",
+                  "start": 20.871458,
+                  "end": 21.110209,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "and"
+                },
+                {
+                  "word": "qualified",
+                  "start": 21.110209,
+                  "end": 21.610209,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "qualified"
+                },
+                {
+                  "word": "and",
+                  "start": 22.383541,
+                  "end": 22.622292,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "and"
+                },
+                {
+                  "word": "didn't",
+                  "start": 22.622292,
+                  "end": 22.861042,
+                  "confidence": 0.83447266,
+                  "punctuated_word": "didn't"
+                },
+                {
+                  "word": "get",
+                  "start": 22.861042,
+                  "end": 23.258959,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "get,"
+                },
+                {
+                  "word": "the",
+                  "start": 23.338543,
+                  "end": 23.656876,
+                  "confidence": 0.97998047,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "same",
+                  "start": 23.656876,
+                  "end": 24.134377,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "same"
+                },
+                {
+                  "word": "opportunities",
+                  "start": 24.134377,
+                  "end": 24.45271,
+                  "confidence": 0.99365234,
+                  "punctuated_word": "opportunities"
+                },
+                {
+                  "word": "that",
+                  "start": 24.45271,
+                  "end": 24.69146,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "that"
+                },
+                {
+                  "word": "we",
+                  "start": 24.69146,
+                  "end": 24.850624,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "we"
+                },
+                {
+                  "word": "have",
+                  "start": 24.850624,
+                  "end": 25.168959,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "have"
+                },
+                {
+                  "word": "today",
+                  "start": 25.168959,
+                  "end": 25.248543,
+                  "confidence": 0.97021484,
+                  "punctuated_word": "today."
+                }
+              ],
+              "paragraphs": {
+                "transcript": "\nYeah. As as much as it's worth celebrating the first Space walk with an all female team. I think many of us are looking forward to it just being normal. And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+                "paragraphs": [
+                  {
+                    "sentences": [
+                      {
+                        "text": "Yeah.",
+                        "start": 0.11980891,
+                        "end": 0.19968152
+                      },
+                      {
+                        "text": "As as much as it's worth celebrating the first Space walk with an all female team.",
+                        "start": 0.43929935,
+                        "end": 7.6278343
+                      },
+                      {
+                        "text": "I think many of us are looking forward to it just being normal.",
+                        "start": 8.586306,
+                        "end": 12.340318
+                      },
+                      {
+                        "text": "And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+                        "start": 12.833542,
+                        "end": 25.248543
+                      }
+                    ],
+                    "num_words": 63,
+                    "start": 0.11980891,
+                    "end": 25.248543
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "error": null
+}
+Deepgram转写完成: {
+  textLength: 329,
+  segmentsCount: 4,
+  detectedLanguage: 'unknown',
+  duration: 25.933313,
+  confidence: 0.9946289
+}
+视频 test1 处理完成，耗时 3592ms
+Deepgram完整响应: {
+  "result": {
+    "metadata": {
+      "transaction_key": "deprecated",
+      "request_id": "03c1ce43-8ecc-44f7-8f42-0267148b60b3",
+      "sha256": "154e291ecfa8be6ab8343560bcc109008fa7853eb5372533e8efdefc9b504c33",
+      "created": "2025-08-01T07:51:41.367Z",
+      "duration": 25.933313,
+      "channels": 1,
+      "models": [
+        "1ed36bac-f71c-4f3f-a31f-02fd6525c489"
+      ],
+      "model_info": {
+        "1ed36bac-f71c-4f3f-a31f-02fd6525c489": {
+          "name": "general",
+          "version": "2024-01-26.8851",
+          "arch": "base"
+        }
+      }
+    },
+    "results": {
+      "channels": [
+        {
+          "alternatives": [
+            {
+              "transcript": "Yeah. As as much as it's worth celebrating the first Space walk with an all female team. I think many of us are looking forward to it just being normal. And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+              "confidence": 0.9941406,
+              "words": [
+                {
+                  "word": "yeah",
+                  "start": 0.11980891,
+                  "end": 0.19968152,
+                  "confidence": 0.98046875,
+                  "punctuated_word": "Yeah."
+                },
+                {
+                  "word": "as",
+                  "start": 0.43929935,
+                  "end": 0.93929935,
+                  "confidence": 0.85839844,
+                  "punctuated_word": "As"
+                },
+                {
+                  "word": "as",
+                  "start": 0.9984076,
+                  "end": 1.1581528,
+                  "confidence": 0.9926758,
+                  "punctuated_word": "as"
+                },
+                {
+                  "word": "much",
+                  "start": 1.1581528,
+                  "end": 1.317898,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "much"
+                },
+                {
+                  "word": "as",
+                  "start": 1.317898,
+                  "end": 1.6373885,
+                  "confidence": 0.98291016,
+                  "punctuated_word": "as"
+                },
+                {
+                  "word": "it's",
+                  "start": 2.116624,
+                  "end": 2.356242,
+                  "confidence": 0.9941406,
+                  "punctuated_word": "it's"
+                },
+                {
+                  "word": "worth",
+                  "start": 2.356242,
+                  "end": 2.856242,
+                  "confidence": 1,
+                  "punctuated_word": "worth"
+                },
+                {
+                  "word": "celebrating",
+                  "start": 2.9153502,
+                  "end": 3.4153502,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "celebrating"
+                },
+                {
+                  "word": "the",
+                  "start": 4.512802,
+                  "end": 4.6725473,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "first",
+                  "start": 4.6725473,
+                  "end": 5.1725473,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "first"
+                },
+                {
+                  "word": "space",
+                  "start": 5.3914013,
+                  "end": 5.7108917,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "Space"
+                },
+                {
+                  "word": "walk",
+                  "start": 5.7108917,
+                  "end": 6.030382,
+                  "confidence": 0.7661133,
+                  "punctuated_word": "walk"
+                },
+                {
+                  "word": "with",
+                  "start": 6.509618,
+                  "end": 6.669363,
+                  "confidence": 0.9941406,
+                  "punctuated_word": "with"
+                },
+                {
+                  "word": "an",
+                  "start": 6.669363,
+                  "end": 6.829108,
+                  "confidence": 0.9848633,
+                  "punctuated_word": "an"
+                },
+                {
+                  "word": "all",
+                  "start": 6.829108,
+                  "end": 6.9888535,
+                  "confidence": 0.921875,
+                  "punctuated_word": "all"
+                },
+                {
+                  "word": "female",
+                  "start": 6.9888535,
+                  "end": 7.388216,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "female"
+                },
+                {
+                  "word": "team",
+                  "start": 7.388216,
+                  "end": 7.6278343,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "team."
+                },
+                {
+                  "word": "i",
+                  "start": 8.586306,
+                  "end": 8.666178,
+                  "confidence": 1,
+                  "punctuated_word": "I"
+                },
+                {
+                  "word": "think",
+                  "start": 8.666178,
+                  "end": 8.985668,
+                  "confidence": 1,
+                  "punctuated_word": "think"
+                },
+                {
+                  "word": "many",
+                  "start": 8.985668,
+                  "end": 9.145413,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "many"
+                },
+                {
+                  "word": "of",
+                  "start": 9.145413,
+                  "end": 9.305159,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "of"
+                },
+                {
+                  "word": "us",
+                  "start": 9.305159,
+                  "end": 9.805159,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "us"
+                },
+                {
+                  "word": "are",
+                  "start": 10.024013,
+                  "end": 10.26363,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "are"
+                },
+                {
+                  "word": "looking",
+                  "start": 10.26363,
+                  "end": 10.58312,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "looking"
+                },
+                {
+                  "word": "forward",
+                  "start": 10.58312,
+                  "end": 10.822739,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "forward"
+                },
+                {
+                  "word": "to",
+                  "start": 10.822739,
+                  "end": 10.982484,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "to"
+                },
+                {
+                  "word": "it",
+                  "start": 10.982484,
+                  "end": 11.142229,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "just",
+                  "start": 11.142229,
+                  "end": 11.381846,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "just"
+                },
+                {
+                  "word": "being",
+                  "start": 11.381846,
+                  "end": 11.881846,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "being"
+                },
+                {
+                  "word": "normal",
+                  "start": 12.020827,
+                  "end": 12.340318,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "normal."
+                },
+                {
+                  "word": "and",
+                  "start": 12.833542,
+                  "end": 13.231459,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "And"
+                },
+                {
+                  "word": "i",
+                  "start": 14.027292,
+                  "end": 14.106875,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "I"
+                },
+                {
+                  "word": "think",
+                  "start": 14.106875,
+                  "end": 14.266042,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "think"
+                },
+                {
+                  "word": "if",
+                  "start": 14.266042,
+                  "end": 14.425209,
+                  "confidence": 0.9941406,
+                  "punctuated_word": "if"
+                },
+                {
+                  "word": "it",
+                  "start": 14.425209,
+                  "end": 14.823126,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "signifies",
+                  "start": 14.823126,
+                  "end": 15.1414585,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "signifies"
+                },
+                {
+                  "word": "anything",
+                  "start": 15.1414585,
+                  "end": 15.539375,
+                  "confidence": 1,
+                  "punctuated_word": "anything,"
+                },
+                {
+                  "word": "it",
+                  "start": 15.778126,
+                  "end": 16.016876,
+                  "confidence": 0.99121094,
+                  "punctuated_word": "it"
+                },
+                {
+                  "word": "is",
+                  "start": 16.016876,
+                  "end": 16.335209,
+                  "confidence": 0.9921875,
+                  "punctuated_word": "is"
+                },
+                {
+                  "word": "to",
+                  "start": 16.892292,
+                  "end": 17.131042,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "to"
+                },
+                {
+                  "word": "honor",
+                  "start": 17.131042,
+                  "end": 17.369793,
+                  "confidence": 1,
+                  "punctuated_word": "honor"
+                },
+                {
+                  "word": "the",
+                  "start": 17.369793,
+                  "end": 17.608541,
+                  "confidence": 0.9741211,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "the",
+                  "start": 17.608541,
+                  "end": 17.847292,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "women",
+                  "start": 17.847292,
+                  "end": 18.086042,
+                  "confidence": 0.75927734,
+                  "punctuated_word": "women"
+                },
+                {
+                  "word": "who",
+                  "start": 18.086042,
+                  "end": 18.245209,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "who"
+                },
+                {
+                  "word": "came",
+                  "start": 18.245209,
+                  "end": 18.563541,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "came"
+                },
+                {
+                  "word": "before",
+                  "start": 18.563541,
+                  "end": 18.72271,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "before"
+                },
+                {
+                  "word": "us",
+                  "start": 18.72271,
+                  "end": 18.881874,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "us,"
+                },
+                {
+                  "word": "who",
+                  "start": 19.43896,
+                  "end": 19.836876,
+                  "confidence": 0.9946289,
+                  "punctuated_word": "who"
+                },
+                {
+                  "word": "were",
+                  "start": 20.23479,
+                  "end": 20.553125,
+                  "confidence": 0.9135742,
+                  "punctuated_word": "were"
+                },
+                {
+                  "word": "skilled",
+                  "start": 20.553125,
+                  "end": 20.871458,
+                  "confidence": 0.99902344,
+                  "punctuated_word": "skilled"
+                },
+                {
+                  "word": "and",
+                  "start": 20.871458,
+                  "end": 21.110209,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "and"
+                },
+                {
+                  "word": "qualified",
+                  "start": 21.110209,
+                  "end": 21.610209,
+                  "confidence": 0.9995117,
+                  "punctuated_word": "qualified"
+                },
+                {
+                  "word": "and",
+                  "start": 22.383541,
+                  "end": 22.622292,
+                  "confidence": 0.9970703,
+                  "punctuated_word": "and"
+                },
+                {
+                  "word": "didn't",
+                  "start": 22.622292,
+                  "end": 22.861042,
+                  "confidence": 0.83447266,
+                  "punctuated_word": "didn't"
+                },
+                {
+                  "word": "get",
+                  "start": 22.861042,
+                  "end": 23.258959,
+                  "confidence": 0.9975586,
+                  "punctuated_word": "get,"
+                },
+                {
+                  "word": "the",
+                  "start": 23.338543,
+                  "end": 23.656876,
+                  "confidence": 0.9824219,
+                  "punctuated_word": "the"
+                },
+                {
+                  "word": "same",
+                  "start": 23.656876,
+                  "end": 24.134377,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "same"
+                },
+                {
+                  "word": "opportunities",
+                  "start": 24.134377,
+                  "end": 24.45271,
+                  "confidence": 0.99365234,
+                  "punctuated_word": "opportunities"
+                },
+                {
+                  "word": "that",
+                  "start": 24.45271,
+                  "end": 24.69146,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "that"
+                },
+                {
+                  "word": "we",
+                  "start": 24.69146,
+                  "end": 24.850624,
+                  "confidence": 0.99853516,
+                  "punctuated_word": "we"
+                },
+                {
+                  "word": "have",
+                  "start": 24.850624,
+                  "end": 25.168959,
+                  "confidence": 0.9980469,
+                  "punctuated_word": "have"
+                },
+                {
+                  "word": "today",
+                  "start": 25.168959,
+                  "end": 25.248543,
+                  "confidence": 0.96777344,
+                  "punctuated_word": "today."
+                }
+              ],
+              "paragraphs": {
+                "transcript": "\nYeah. As as much as it's worth celebrating the first Space walk with an all female team. I think many of us are looking forward to it just being normal. And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+                "paragraphs": [
+                  {
+                    "sentences": [
+                      {
+                        "text": "Yeah.",
+                        "start": 0.11980891,
+                        "end": 0.19968152
+                      },
+                      {
+                        "text": "As as much as it's worth celebrating the first Space walk with an all female team.",
+                        "start": 0.43929935,
+                        "end": 7.6278343
+                      },
+                      {
+                        "text": "I think many of us are looking forward to it just being normal.",
+                        "start": 8.586306,
+                        "end": 12.340318
+                      },
+                      {
+                        "text": "And I think if it signifies anything, it is to honor the the women who came before us, who were skilled and qualified and didn't get, the same opportunities that we have today.",
+                        "start": 12.833542,
+                        "end": 25.248543
+                      }
+                    ],
+                    "num_words": 63,
+                    "start": 0.11980891,
+                    "end": 25.248543
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "error": null
+}
+Deepgram转写完成: {
+  textLength: 329,
+  segmentsCount: 4,
+  detectedLanguage: 'unknown',
+  duration: 25.933313,
+  confidence: 0.9941406
+}
+视频 test2 处理完成，耗时 3784ms
+批量处理完成: 成功 2 个，失败 0 个，总耗时 7376ms
+ ✓ Compiled in 6.3s (378 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 701ms (332 modules)
+ ✓ Compiled in 1570ms (332 modules)
+ ✓ Compiled in 400ms (332 modules)
+ ✓ Compiled in 405ms (332 modules)
+ ✓ Compiled in 453ms (332 modules)
+ ✓ Compiled in 521ms (332 modules)
+ ✓ Compiled in 804ms (332 modules)
+ ✓ Compiled in 620ms (332 modules)
+ ✓ Compiled in 396ms (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 712ms (332 modules)
+ ✓ Compiled in 414ms (332 modules)
+ ✓ Compiled in 445ms (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 731ms (332 modules)
+ ✓ Compiled in 2.1s (332 modules)
+ ✓ Compiled in 586ms (332 modules)
+   Reload env: .env.local
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 1622ms (378 modules)
+ ✓ Compiled in 494ms (332 modules)
+ ✓ Compiled in 434ms (332 modules)
+ ✓ Compiled in 580ms (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 464ms (332 modules)
+ ✓ Compiled in 370ms (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 619ms (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 420ms (332 modules)
+ ✓ Compiled in 377ms (332 modules)
+ ✓ Compiled in 371ms (332 modules)
+ ✓ Compiled in 360ms (332 modules)
+ ✓ Compiled in 340ms (332 modules)
+ ✓ Compiled in 1642ms (332 modules)
+ ✓ Compiled in 498ms (332 modules)
+ ✓ Compiled in 677ms (332 modules)
+ ✓ Compiled in 866ms (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 629ms (332 modules)
+ ✓ Compiled in 672ms (332 modules)
+ ✓ Compiled in 2.3s (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Restoring pack from E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development.pack.gz failed: TypeError: Cannot read properties of undefined (reading 'hasStartTime')
+ ✓ Compiled in 837ms (332 modules)
+ ✓ Compiled in 464ms (332 modules)
+ ✓ Compiled in 868ms (332 modules)
+ ✓ Compiled in 1294ms (332 modules)
+<w> [webpack.cache.PackFileCacheStrategy] Caching failed for pack: Error: ENOENT: no such file or directory, rename 'E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development\1.pack.gz_' -> 'E:\AI_code\0ai_agent\youtube-agent\.next\cache\webpack\client-development\1.pack.gz'
 [?25h

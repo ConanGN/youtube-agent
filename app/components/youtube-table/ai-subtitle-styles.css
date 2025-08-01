@@ -1,0 +1,228 @@
+/* AI字幕功能专用响应式样式 */
+
+/* 字幕列按钮组响应式优化 */
+.subtitle-header-buttons {
+  @apply flex flex-col sm:flex-row space-y-1 sm:space-y-0 sm:space-x-1 w-full;
+}
+
+.subtitle-header-buttons button {
+  @apply flex-1 sm:flex-none;
+  min-width: 60px; /* 确保按钮有最小宽度 */
+}
+
+/* 移动端按钮文本优化 */
+@media (max-width: 639px) {
+  .subtitle-ai-button .desktop-text {
+    display: none;
+  }
+  
+  .subtitle-ai-button .mobile-text {
+    display: inline;
+  }
+  
+  .subtitle-header-buttons {
+    gap: 4px;
+  }
+}
+
+@media (min-width: 640px) {
+  .subtitle-ai-button .desktop-text {
+    display: inline;
+  }
+  
+  .subtitle-ai-button .mobile-text {
+    display: none;
+  }
+}
+
+/* AI字幕弹窗响应式优化 */
+.ai-subtitle-dialog {
+  @apply w-full max-w-lg mx-2;
+}
+
+@media (min-width: 640px) {
+  .ai-subtitle-dialog {
+    @apply max-w-2xl mx-4;
+  }
+}
+
+/* 语言选择下拉菜单响应式 */
+.language-select {
+  @apply w-full;
+}
+
+@media (min-width: 768px) {
+  .language-select {
+    max-width: 300px;
+  }
+}
+
+/* 进度状态浮动框响应式 */
+.ai-progress-float {
+  @apply fixed bottom-4 right-4 max-w-xs;
+}
+
+@media (max-width: 639px) {
+  .ai-progress-float {
+    @apply bottom-2 right-2 left-2 max-w-none;
+    width: calc(100% - 16px);
+  }
+}
+
+/* 视频列表预览响应式 */
+.video-preview-list {
+  @apply space-y-2;
+}
+
+@media (max-width: 639px) {
+  .video-preview-list {
+    @apply space-y-1;
+  }
+  
+  .video-preview-item {
+    @apply text-xs;
+  }
+}
+
+/* 按钮组动画和过渡效果 */
+.subtitle-header-buttons button {
+  transition: all 0.2s ease-in-out;
+}
+
+.subtitle-header-buttons button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.subtitle-header-buttons button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* AI字幕特殊状态样式 */
+.ai-subtitle-processing {
+  @apply bg-gradient-to-r from-purple-500 to-blue-500;
+  background-size: 200% 200%;
+  animation: ai-gradient 2s ease-in-out infinite alternate;
+}
+
+@keyframes ai-gradient {
+  0% {
+    background-position: left center;
+  }
+  100% {
+    background-position: right center;
+  }
+}
+
+/* 配置选项优化 */
+.ai-config-option {
+  @apply p-3 bg-gray-50 rounded-lg transition-colors;
+}
+
+.ai-config-option:hover {
+  @apply bg-gray-100;
+}
+
+.ai-config-option input:checked + label {
+  @apply text-purple-700 font-medium;
+}
+
+/* 使用提示区域 */
+.ai-usage-tip {
+  @apply bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200;
+}
+
+.ai-usage-tip::before {
+  content: '🤖';
+  font-size: 16px;
+  margin-right: 8px;
+}
+
+/* 进度条动画 */
+.progress-bar {
+  transition: width 0.3s ease-in-out;
+}
+
+.progress-bar-gradient {
+  @apply bg-gradient-to-r from-purple-500 to-blue-500;
+  background-size: 200% 100%;
+  animation: progress-shine 2s linear infinite;
+}
+
+@keyframes progress-shine {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+/* 状态指示器样式 */
+.status-indicator {
+  @apply flex items-center px-3 py-2 rounded-lg;
+}
+
+.status-indicator.processing {
+  @apply bg-blue-50 text-blue-700;
+}
+
+.status-indicator.completed {
+  @apply bg-green-50 text-green-700;
+}
+
+.status-indicator.error {
+  @apply bg-red-50 text-red-700;
+}
+
+.status-indicator.cancelled {
+  @apply bg-orange-50 text-orange-700;
+}
+
+/* 加载动画优化 */
+.ai-loading-spinner {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .subtitle-header-buttons button {
+    border: 2px solid currentColor;
+  }
+  
+  .ai-subtitle-dialog {
+    border: 2px solid #000;
+  }
+}
+
+/* 减少动画模式支持 */
+@media (prefers-reduced-motion: reduce) {
+  .subtitle-header-buttons button,
+  .progress-bar,
+  .ai-loading-spinner {
+    animation: none;
+    transition: none;
+  }
+  
+  .subtitle-header-buttons button:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+/* 打印样式优化 */
+@media print {
+  .ai-subtitle-dialog,
+  .ai-progress-float,
+  .subtitle-header-buttons button {
+    display: none !important;
+  }
+}

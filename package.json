@@ -16,6 +16,8 @@
   "dependencies": {
     "@ai-sdk/openai": "^0.0.66",
     "@anthropic-ai/sdk": "^0.57.0",
+    "@deepgram/sdk": "^4.11.1",
+    "@distube/ytdl-core": "^4.16.12",
     "@tanstack/react-table": "^8.11.2",
     "@types/node": "^20",
     "@types/react": "^18",
@@ -38,6 +40,7 @@
     "tailwindcss": "^3.3.0",
     "typescript": "^5",
     "xlsx": "^0.18.5",
+    "ytdl-core": "^4.11.5",
     "zod": "^3.25.76",
     "zustand": "^4.4.7"
   },
