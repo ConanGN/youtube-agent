@@ -305,39 +305,28 @@ const transcribeWithDeepgram = async (
       throw new Error(`音频链接访问失败: ${error.message}`);
     }
     
-    // 构建Deepgram请求参数 - 修正模型名称和兼容性配置
+    // 构建Deepgram请求参数 - 与工作的curl命令保持一致
     const deepgramOptions = {
-      model: 'nova-2-general',  // 修正：使用完整的模型名称
+      model: 'nova-3-general',  // 使用nova-3-general模型（与curl命令一致）
+      detect_language: true,    // 启用语言自动检测（与curl命令一致）
       smart_format: true,       // 启用智能格式化
       punctuate: true,          // 启用标点符号
+      paragraphs: true,         // 启用段落分析
       diarize: false,          // 禁用说话人识别以提高速度
-      paragraphs: true,        // 添加：启用段落分析
-      utterances: true,        // 添加：启用语句分析
-      language: options.language === 'auto' ? undefined : options.language, // 修正：auto时不传语言参数
+      utterances: true,        // 启用语句分析
+      // 移除language参数，使用detect_language自动检测
     };
     
     console.log('Deepgram请求参数:', deepgramOptions);
     console.log('直接访问音频链接:', canAccessDirectly);
     
-    // 下载音频数据然后转写（更可靠的方式）
-    console.log('下载音频数据进行转写...');
-    const audioResponse = await fetch(audioUrl);
+    // 使用URL模式直接让Deepgram获取音频（与工作的curl命令保持一致）
+    console.log('使用URL模式进行Deepgram转写...');
+    console.log('音频URL:', audioUrl.substring(0, 100) + '...');
     
-    if (!audioResponse.ok) {
-      throw new Error(`下载音频失败: ${audioResponse.status} ${audioResponse.statusText}`);
-    }
-    
-    const audioBuffer = await audioResponse.arrayBuffer();
-    console.log('下载音频大小:', audioBuffer.byteLength, 'bytes');
-    console.log('实际音频格式:', audioResponse.headers.get('content-type'));
-    
-    if (audioBuffer.byteLength === 0) {
-      throw new Error('下载的音频文件为空');
-    }
-    
-    console.log('开始Deepgram文件转写...');
-    const response = await deepgram.listen.prerecorded.transcribeFile(
-      audioBuffer,
+    console.log('开始Deepgram URL转写...');
+    const response = await deepgram.listen.prerecorded.transcribeUrl(
+      { url: audioUrl },
       deepgramOptions
     );
     
@@ -592,7 +581,7 @@ export async function GET() {
     features: [
       'YouTube音频直链解析',
       'Deepgram语音转写',
-      'Nova-2 Multilingual模型',
+      'Nova-3 General模型',
       '批量处理（最多10个）',
       '并发控制（4个线程）',
       '智能格式化',
