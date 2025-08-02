@@ -22,6 +22,7 @@ import {
   ColumnSizingState,
 } from '@tanstack/react-table'
 import { Zap, AlertCircle, CheckCircle, RefreshCw, X, Loader2 } from 'lucide-react'
+import FloatingProgressCard from '@/components/ui/FloatingProgressCard'
 import {
   YouTubeVideo,
   EditHistory,
@@ -433,6 +434,20 @@ export function YouTubeTable({
       setShowAISubtitleDialog(false)
       
       try {
+        // 修复：立即为所有选中视频设置loading状态，让用户在单元格中看到"加载中..."提示
+        const loadingData = tableData.map((item) => {
+          // 检查是否为要处理的视频（通过URL匹配）
+          const isSelected = config.urls.some(url => 
+            url.includes(item.id) || item.videoUrl === url
+          )
+          if (isSelected) {
+            return { ...item, subtitlesStatus: 'loading' as const }
+          }
+          return item
+        })
+        setTableData(loadingData)
+        onDataChange?.(loadingData)
+
         // 设置初始进度状态
         setAISubtitleProgress(prev => ({
           ...prev,
@@ -539,6 +554,20 @@ export function YouTubeTable({
           }, 500)
         }
 
+        // 修复：根据处理结果决定是否自动关闭进度卡片
+        if (successCount > 0 && errorCount === 0) {
+          // 全部成功时，3秒后自动关闭
+          setTimeout(() => {
+            setAISubtitleProgress(prev => ({ ...prev, status: 'idle' }))
+          }, 3000)
+        } else if (successCount === 0 && errorCount > 0) {
+          // 全部失败时，5秒后自动关闭
+          setTimeout(() => {
+            setAISubtitleProgress(prev => ({ ...prev, status: 'idle' }))
+          }, 5000)
+        }
+        // 部分成功部分失败时，不自动关闭，让用户选择是否重试
+
       } catch (error) {
         console.error('AI字幕处理失败:', error)
         
@@ -550,18 +579,16 @@ export function YouTubeTable({
 
         // 显示错误提示
         alert(`AI字幕处理失败: ${error instanceof Error ? error.message : '未知错误'}`)
+        
+        // 修复：错误情况下也要自动关闭进度卡片
+        setTimeout(() => {
+          setAISubtitleProgress(prev => ({ ...prev, status: 'idle' }))
+        }, 3000)
       } finally {
         setAISubtitleProcessing(false)
         
-        // 3秒后重置进度状态
-        setTimeout(() => {
-          setAISubtitleProgress({
-            current: 0,
-            total: 0,
-            status: 'idle',
-            results: []
-          })
-        }, 3000)
+        // 修复：移除通用的3秒重置逻辑，改为在错误情况下才重置
+        // 成功情况的自动关闭已在成功分支中处理
       }
     },
     [tableData, onDataChange, formatTime]
@@ -2048,93 +2075,13 @@ export function YouTubeTable({
           disabled={aiSubtitleProcessing}
         />
 
-        {/* AI字幕处理进度状态显示 */}
-        {aiSubtitleProgress.status !== 'idle' && (
-          <div className="fixed bottom-4 right-4 bg-white border border-gray-200 rounded-lg shadow-lg p-4 max-w-sm z-40">
-            <div className="flex items-center justify-between mb-2">
-              <h4 className="text-sm font-medium text-gray-900 flex items-center">
-                <svg className="w-4 h-4 mr-2 text-purple-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
-                </svg>
-                AI字幕处理
-              </h4>
-              <button
-                onClick={() => setAISubtitleProgress(prev => ({ ...prev, status: 'idle' }))}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            
-            <div className="space-y-2">
-              {/* 进度条 */}
-              <div className="flex items-center justify-between text-xs text-gray-500">
-                <span>进度</span>
-                <span>{aiSubtitleProgress.current}/{aiSubtitleProgress.total}</span>
-              </div>
-              <div className="w-full bg-gray-200 rounded-full h-1.5">
-                <div
-                  className="bg-gradient-to-r from-purple-500 to-blue-500 h-1.5 rounded-full transition-all duration-300"
-                  style={{
-                    width: `${aiSubtitleProgress.total > 0 ? (aiSubtitleProgress.current / aiSubtitleProgress.total) * 100 : 0}%`
-                  }}
-                ></div>
-              </div>
-              
-              {/* 状态消息 */}
-              <div className="flex items-center justify-between text-xs">
-                <div className="flex items-center">
-                  {aiSubtitleProgress.status === 'processing' && (
-                    <>
-                      <Loader2 className="w-3 h-3 mr-1 animate-spin text-blue-500" />
-                      <span className="text-blue-700">正在处理中...</span>
-                    </>
-                  )}
-                  {aiSubtitleProgress.status === 'completed' && (
-                    <>
-                      <CheckCircle className="w-3 h-3 mr-1 text-green-500" />
-                      <span className="text-green-700">
-                        完成 {aiSubtitleProgress.successCount || 0}
-                        {(aiSubtitleProgress.failedCount || 0) > 0 && (
-                          <span className="text-red-600 ml-1">
-                            失败 {aiSubtitleProgress.failedCount}
-                          </span>
-                        )}
-                      </span>
-                    </>
-                  )}
-                  {aiSubtitleProgress.status === 'error' && (
-                    <>
-                      <AlertCircle className="w-3 h-3 mr-1 text-red-500" />
-                      <span className="text-red-700">处理失败</span>
-                    </>
-                  )}
-                </div>
-                
-                {/* 重试按钮 (仅在有失败项时显示) */}
-                {aiSubtitleProgress.status === 'completed' && (aiSubtitleProgress.failedCount || 0) > 0 && (
-                  <button
-                    onClick={() => {
-                      // 重新打开弹窗以重试失败的项目
-                      setShowAISubtitleDialog(true)
-                    }}
-                    className="px-2 py-1 bg-orange-100 text-orange-700 rounded hover:bg-orange-200 transition-colors"
-                    title="重试失败的视频"
-                  >
-                    重试
-                  </button>
-                )}
-              </div>
-              
-              {/* 当前处理视频 */}
-              {aiSubtitleProgress.currentVideoTitle && aiSubtitleProgress.status === 'processing' && (
-                <div className="text-xs text-gray-600 truncate">
-                  {aiSubtitleProgress.currentVideoTitle}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* AI字幕处理进度状态显示 - 使用增强的浮动进度卡片 */}
+        <FloatingProgressCard
+          progress={aiSubtitleProgress}
+          onClose={() => setAISubtitleProgress(prev => ({ ...prev, status: 'idle' }))}
+          onRetry={() => setShowAISubtitleDialog(true)}
+          position="bottom-right"
+        />
       </div>
     </TableStyleEnhancer>
   )
