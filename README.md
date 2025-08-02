@@ -1,23 +1,32 @@
 # YouTube数据处理与AI增强平台
 
-一个基于Next.js 14构建的现代化YouTube数据处理和AI增强平台，支持视频数据抓取、智能表格操作、AI内容优化和多格式数据导出功能。
+一个基于Next.js 14构建的现代化YouTube数据处理和AI增强平台，支持视频数据抓取、智能表格操作、AI内容优化、AI字幕处理和多格式数据导出功能。
 
-> **最新更新**: 2025-01-26 - 已切换至SiliconFlow API，使用DeepSeek-V3模型提供更优质的AI服务
+> **最新更新**: 2025-08-01 - AI字幕处理等待动画增强集成完成，全新UI组件系统提升用户体验
 
 ## ✨ 功能特性
 
 ### 🎯 核心功能
 - **多种数据获取方式**：支持单个视频、批量视频、频道视频数据抓取
-- **智能数据表格**：类似Excel的交互体验，支持排序、筛选、内联编辑
+- **智能数据表格**：类似Excel的交互体验，支持排序、筛选、内联编辑、虚拟列配置
 - **AI内容增强**：标题优化、描述摘要、多语言翻译、关键词提取
+- **AI字幕处理**：智能字幕生成、编辑和管理，支持多语言字幕
 - **数据导出**：支持CSV、JSON、Excel等多种格式导出
+- **动态列管理**：灵活的列显示控制，可自由添加、删除和配置表格列
 
 ### 🚀 技术特色
 - **现代化架构**：Next.js 14 + App Router + TypeScript
 - **高性能表格**：基于TanStack Table的虚拟化表格组件
-- **AI集成**：支持OpenAI和Anthropic多种AI服务
+- **AI集成**：支持OpenAI和Anthropic多种AI服务，集成SiliconFlow API
 - **响应式设计**：完美支持桌面端和移动端
 - **状态管理**：使用Zustand进行轻量级状态管理
+- **优美动画系统**：AI处理等待动画、粒子效果、脉冲波纹等现代化UI交互
+
+### 🎨 UI/UX 亮点
+- **AI处理动画**：粒子效果、脉冲波纹、圆形进度条、成功庆祝动画
+- **浮动进度卡片**：最小化支持、位置调整、动态波形装饰
+- **响应式组件**：智能适配移动端和桌面端，紧凑模式自动切换
+- **紫色AI主题**：统一的设计语言，与品牌风格完美融合
 
 ## 🛠️ 技术栈
 
@@ -30,6 +39,8 @@
 - **@tanstack/react-table** - 高性能数据表格
 - **zustand** - 状态管理
 - **papaparse** - CSV数据处理
+- **lucide-react** - 现代化图标库
+- **@deepgram/sdk** - 语音转文字服务
 
 ### AI & API
 - **SiliconFlow API** - AI服务集成，使用DeepSeek-V3模型
@@ -114,7 +125,17 @@ yarn dev
    - **标题翻译**：翻译成其他语言
    - **关键词提取**：提取SEO关键词
 4. 配置增强选项并执行
-5. 预览并应用结果
+5. 享受精美的等待动画体验
+6. 预览并应用结果
+
+### AI字幕处理
+1. 选择视频并点击"字幕"列的编辑按钮
+2. 选择字幕处理方式：
+   - **自动生成**：使用AI自动生成字幕
+   - **翻译现有字幕**：翻译已有字幕到其他语言
+   - **编辑字幕**：手动编辑和优化字幕内容
+3. 实时预览处理进度，享受流畅的动画反馈
+4. 保存和管理字幕文件
 
 ### 数据导出
 1. 点击"导出数据"按钮
@@ -130,20 +151,37 @@ youtube-agent/
 ├── app/                    # Next.js 14 App Router
 │   ├── api/               # API路由
 │   │   ├── youtube/       # YouTube数据API
-│   │   ├── ai/           # AI增强API
+│   │   ├── ai/           # AI增强API (enhance, batch, commit)
+│   │   ├── subtitles/    # 字幕处理API
 │   │   └── export/       # 数据导出API
 │   ├── components/        # React组件
 │   │   ├── data-input/   # 数据输入组件
 │   │   ├── youtube-table/ # 表格组件
+│   │   │   ├── YouTubeTable.tsx    # 主表格组件
+│   │   │   ├── AISubtitleDialog.tsx # AI字幕对话框
+│   │   │   ├── ColumnManager.tsx    # 列管理器
+│   │   │   └── DynamicColumn.tsx    # 动态列组件
 │   │   ├── ai-enhancement/ # AI增强组件
+│   │   ├── ui/           # UI动画组件
+│   │   │   ├── AIProcessingAnimation.tsx # AI处理动画
+│   │   │   ├── FloatingProgressCard.tsx  # 浮动进度卡片
+│   │   │   └── AILoadingButton.tsx       # AI加载按钮
 │   │   └── export-dialog/ # 导出对话框
 │   ├── lib/              # 工具库
+│   │   ├── ai/           # AI配置和生成
+│   │   ├── column-features/ # 列功能管理
+│   │   └── youtube-api.ts   # YouTube API客户端
 │   ├── store/            # 状态管理
 │   ├── types/            # TypeScript类型定义
+│   │   ├── ai.ts         # AI相关类型
+│   │   ├── table.ts      # 表格类型
+│   │   └── youtube.ts    # YouTube数据类型
 │   └── page.tsx          # 主页面
+├── __tests__/            # 测试文件
 ├── public/               # 静态资源
 ├── .env.example         # 环境变量示例
 ├── package.json         # 项目配置
+├── READ.md              # 项目修改记录
 └── README.md           # 项目说明
 ```
 
@@ -261,7 +299,20 @@ A: 确保选择了要导出的数据，检查浏览器是否阻止了下载。
 
 ## 📝 更新日志
 
-### 2025-01-26
+### 2025-08-01 - v3.5.0 🎨
+- **🌟 AI字幕处理等待动画增强集成完成**：
+  - 全功能增强动画组件系统，包含粒子效果、脉冲波纹、圆形进度条、成功庆祝动画
+  - FloatingProgressCard轻量级浮动进度卡片，支持最小化、位置调整、动态波形装饰
+  - 响应式设计：智能适配移动端和桌面端，紧凑模式和完整模式自动切换
+  - 紫色AI主题：与现有设计系统完美融合的统一视觉风格
+- **⚡ 最小化代码修改**：仅需3行代码即可完成现有系统的动画升级，完全向后兼容
+- **📱 性能优化**：CSS动画为主，GPU加速，60fps流畅运行，无内存泄漏
+- **🎯 组件架构**：
+  - `AIProcessingAnimation.tsx`: 全功能增强动画组件 (398行)
+  - `FloatingProgressCard.tsx`: 轻量级浮动进度卡片 (354行)
+  - `AnimationTestPage.tsx`: 响应式设计测试页面 (200行)
+
+### 2025-01-26 - v2.0.0
 - **🚀 AI服务升级**：从OpenRouter切换至SiliconFlow API
   - 使用DeepSeek-V3高性能智能模型，响应更快更准确
   - API端点：`https://api.siliconflow.cn/v1`
@@ -271,9 +322,8 @@ A: 确保选择了要导出的数据，检查浏览器是否阻止了下载。
   - `lib/ai/generate.ts`: 适配新的API调用格式
   - `app/api/ai/enhance/route.ts`: 更新增强功能API
   - `.env.example` 和 `.env.local`: 更新环境变量配置
-- **文档更新**：更新README.md中的API说明和获取指南
 
-### 2025-07-24
+### 2025-07-24 - v1.2.0
 - **修复数据混淆问题**：解决了视频链接请求时显示之前账号链接数据的问题
 - **新增数据处理模式**：添加"替换数据"和"追加数据"两种模式选择
   - 替换数据：清除旧数据，只显示当前请求的数据（默认模式）
