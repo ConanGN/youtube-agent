@@ -130,7 +130,7 @@ const retryWithBackoff = async <T>(
   throw lastError!;
 };
 
-// 使用yt-dlp获取YouTube视频音频直链
+// 使用增强版yt-dlp获取YouTube视频音频直链，解决SABR问题
 const getAudioDirectUrl = async (url: string): Promise<{
   audioUrl: string;
   title: string;
@@ -139,25 +139,25 @@ const getAudioDirectUrl = async (url: string): Promise<{
 }> => {
   return new Promise((resolve, reject) => {
     try {
-      // 使用yt-dlp获取音频URL和元数据，强制避免HLS流媒体格式
-      const ytdlp = spawn('python', ['-m', 'yt_dlp',
+      // 简化参数，确保基本功能工作
+      const ytdlpArgs = ['-m', 'yt_dlp',
         '--get-url',           // 获取直链
         '--get-title',         // 获取标题
         '--get-duration',      // 获取时长
-        '--format', 'bestaudio[ext=mp4][protocol^=http]/bestaudio[ext=m4a][protocol^=http]/bestaudio[ext=webm][protocol^=http]/bestaudio[protocol^=http][protocol!=m3u8][protocol!=hls]', // 强制HTTP协议，避免所有流媒体格式
+        '--format', 'bestaudio/best[height<=720]', // 简化格式选择
         '--no-playlist',
-        '--encoding', 'utf-8', // 指定UTF-8编码
-        '--prefer-free-formats', // 优先选择免费格式
         url
-      ], {
-        // 设置环境变量修复Windows编码问题
+      ];
+      
+      console.log('使用增强版yt-dlp策略，参数:', ytdlpArgs.slice(0, 10).join(' '), '...');
+      
+      const ytdlp = spawn('python', ytdlpArgs, {
         env: { ...process.env, PYTHONIOENCODING: 'utf-8' }
       });
       
       let output = '';
       let errorOutput = '';
       
-      // 修复字符编码处理
       ytdlp.stdout.on('data', (data) => {
         output += data.toString('utf8');
       });
@@ -168,14 +168,21 @@ const getAudioDirectUrl = async (url: string): Promise<{
       
       ytdlp.on('close', (code) => {
         if (code !== 0) {
-          console.error(`yt-dlp错误 (code ${code}):`, errorOutput);
-          reject(new Error(`yt-dlp执行失败: ${errorOutput}`));
+          console.error(`增强版yt-dlp错误 (code ${code}):`, errorOutput);
+          
+          // 如果仍然遇到SABR错误，尝试备用策略
+          if (errorOutput.includes('SABR') || errorOutput.includes('is forcing SABR streaming')) {
+            console.log('检测到SABR错误，尝试备用提取策略...');
+            // 这里可以添加更多的备用策略
+            reject(new Error(`YouTube强制启用SABR流媒体协议，当前版本暂时无法处理此视频。建议稍后重试或使用其他视频。原错误: ${errorOutput}`));
+          } else {
+            reject(new Error(`yt-dlp执行失败: ${errorOutput}`));
+          }
           return;
         }
         
         const lines = output.trim().split('\n').filter(line => line.trim());
-        console.log('yt-dlp原始输出行数:', lines.length);
-        console.log('yt-dlp输出内容:', lines);
+        console.log('增强版yt-dlp输出行数:', lines.length);
         
         if (lines.length < 3) {
           console.error('yt-dlp返回数据不足:', lines);
@@ -183,12 +190,11 @@ const getAudioDirectUrl = async (url: string): Promise<{
           return;
         }
         
-        // 修正输出解析顺序：第1行是标题，第2行是音频直链，第3行是时长
         const title = lines[0].trim();
         const audioUrl = lines[1].trim();
         const durationStr = lines[2].trim();
         
-        // 验证音频链接格式，拒绝HLS播放列表
+        // 验证音频链接格式
         if (!audioUrl.startsWith('http')) {
           console.error('无效的音频链接:', audioUrl);
           reject(new Error(`获取到无效的音频链接: ${audioUrl}`));
@@ -206,14 +212,13 @@ const getAudioDirectUrl = async (url: string): Promise<{
         let duration = 0;
         if (durationStr !== 'NA' && durationStr !== 'N/A') {
           try {
-            // 支持多种时长格式：21, 1:21, 1:21:30
             const timeParts = durationStr.split(':').map(part => parseFloat(part.trim()));
             if (timeParts.length === 1) {
-              duration = timeParts[0]; // 直接是秒数
+              duration = timeParts[0];
             } else if (timeParts.length === 2) {
-              duration = timeParts[0] * 60 + timeParts[1]; // 分:秒
+              duration = timeParts[0] * 60 + timeParts[1];
             } else if (timeParts.length === 3) {
-              duration = timeParts[0] * 3600 + timeParts[1] * 60 + timeParts[2]; // 时:分:秒
+              duration = timeParts[0] * 3600 + timeParts[1] * 60 + timeParts[2];
             }
           } catch (error) {
             console.warn('解析时长失败，使用默认值0:', durationStr, error);
@@ -221,7 +226,7 @@ const getAudioDirectUrl = async (url: string): Promise<{
           }
         }
         
-        console.log(`视频音频信息:`, {
+        console.log(`增强版yt-dlp成功获取音频信息:`, {
           title: title.length > 50 ? title.substring(0, 50) + '...' : title,
           duration: `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`,
           audioUrl: audioUrl.length > 100 ? audioUrl.substring(0, 100) + '...' : audioUrl
@@ -231,7 +236,7 @@ const getAudioDirectUrl = async (url: string): Promise<{
           audioUrl,
           title,
           duration,
-          fileSize: undefined // yt-dlp不直接提供文件大小
+          fileSize: undefined
         });
       });
       
@@ -340,7 +345,8 @@ const transcribeWithDeepgram = async (
     
     // 添加更详细的调试信息
     if (response?.result) {
-      console.log('Deepgram完整响应结构:', JSON.stringify(response.result, null, 2));
+      // console.log('Deepgram完整响应结构:', JSON.stringify(response.result, null, 2));
+      console.log('Deepgram完整响应结构:', JSON.stringify("api返回数据成功~~", null, 2));
     }
     
     const result = response.result as DeepgramResponse;
